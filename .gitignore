@@ -1,0 +1,8 @@
+# Ignore all files in the data/feats directory
+data/feats/**
+
+# Ignore all files in the data/processed directory
+data/processed/**
+
+# Ignore all files in the res directory
+data/pcaps/**
