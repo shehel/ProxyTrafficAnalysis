@@ -32,20 +32,13 @@ def extract_features_by_conn(file_path, gw=True, max_pkts=50):
         group = group.sort_values(by='ts_relative')
 
         # Total connections
-        features['total_connections'] = len(group)  # 1
+        #features['total_connections'] = len(group)  # 1 (NOT USED AS WE LIMIT TO 5) PKTS ONLY
 
         # packets rates ( #of pkts/ duration)
         total_time = calc_seconds(group['ts_relative'].tolist())
         features['pkts_rate'] = len(group) / total_time if total_time > 0 else 0  # 2
 
-        # Unique destination ports
-        unique_dports = group['dst_port'].nunique()
-        features['unique_dports'] = unique_dports  # 3
-
-        # Most common destination port
-        most_common_dport = group['dst_port'].mode()[0] if not group['dst_port'].empty else 0
-        features['most_common_dst_port'] = most_common_dport  # 4
-
+    
         # Duration analysis
         first_ts = group['ts_relative'].iloc[0]
         last_ts = group['ts_relative'].iloc[-1]
@@ -55,16 +48,12 @@ def extract_features_by_conn(file_path, gw=True, max_pkts=50):
         # Time gaps between connections
         group_start_times.append(first_ts)  # First timestamp in the group
 
-        # Traffic analysis
+        # volume features
         total_pkts = group['pkt_len']
         features['mean_total_pkts'] = total_pkts.mean() if not total_pkts.empty else 0  # 10
         features['median_total_pkts'] = total_pkts.median() if not total_pkts.empty else 0  # 11
         features['mode_total_pkts'] = total_pkts.mode()[0] if not total_pkts.empty else 0  # 12
 
-        total_data = group['pkt_len']
-        features['mean_total_data'] = total_data.mean() if not total_data.empty else 0  # 13
-        features['median_total_data'] = total_data.median() if not total_data.empty else 0  # 14
-        features['mode_total_data'] = total_data.mode()[0] if not total_data.empty else 0  # 15
 
         if gw:
             group_sent = group[(group['dst_ip'] == '10.0.2.16') | (group['dst_ip'] == '10.0.2.15')]
@@ -91,8 +80,8 @@ def extract_features_by_conn(file_path, gw=True, max_pkts=50):
     time_diffs = [abs(group_start_times[i + 1] - group_start_times[i]) for i in range(len(group_start_times) - 1)]
 
     # Add avg_time_gap 
-    for i, features in enumerate(all_features[:-1]):  # Exclude the last group because it has no gap
-        features['gap_between_conns'] = time_diffs[i]  # 21s
+    for i, features in enumerate(all_features[:-1]):  
+        features['gap_between_conns'] = time_diffs[i]  
     if all_features:
         all_features[-1]['gap_between_conns'] = 0  # Set last connection's gap to 0
 
@@ -100,11 +89,5 @@ def extract_features_by_conn(file_path, gw=True, max_pkts=50):
     features_df = pd.DataFrame(all_features)
     return features_df
 
-# Example usage
-avg_durations = []
-suffixes = ["low"]
-for suffix in suffixes:
-    for i in range(1):
-        csv_path = "proxy_conn_" + str(i) + "_" + suffix + ".csv"
-        features_df = extract_features_by_conn(csv_path, gw=False)
+
         
