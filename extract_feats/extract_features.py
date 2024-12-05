@@ -284,6 +284,11 @@ def unique_pkt_lengths(list_data):
     pass
 
 ############### FEATURE FUNCTION #####################
+Features_names=["max_in", "max_out","max_total","avg_in","avg_out","avg_total","std_in","std_out","std_total","75th_percentile_in","75th_percentile_out","75th_percentile_total",
+                "nb_pkts_in","nb_pkts_out","nb_pkts_total",
+                "nb_pkts_in_f30","nb_pkts_out_f30","nb_pkts_in_l30","nb_pkts_out_l30","std_pkt_conc_out20", "avg_pkt_conc_out20","avg_per_sec","std_per_sec","avg_order_in",
+                "avg_order_out","std_order_in","std_order_out","medconc","med_per_sec","min_per_sec","max_per_sec","maxconc","perc_in","perc_out","sum_altconc",
+                "sum_alt_per_sec","sum_number_pkts","sum_intertimestats"]
 
 def get_ft_labels(ALL_FEATURES):
     prev = 0
@@ -293,24 +298,21 @@ def get_ft_labels(ALL_FEATURES):
     prev = len(ALL_FEATURES)
     print("Inter packet time stats: ", 0, prev-1) #0-11
 
-    ALL_FEATURES.extend(timestats)
-    next_l = len(ALL_FEATURES)
-    print("Time stats: ", prev, next_l-1) #12-23
 
     prev = next_l
     ALL_FEATURES.extend(number_pkts)
     next_l = len(ALL_FEATURES)
-    print("Number of pkts: ", prev, next_l-1) #24-26
+    print("Number of pkts: ", prev, next_l-1) 
 
     prev = next_l
     ALL_FEATURES.extend(thirtypkts)
     next = len(ALL_FEATURES)
-    print("Thirty packets stats: ", prev, next_l-1) #27-30
+    print("Thirty packets stats: ", prev, next_l-1) 
 
     prev = next_l
     ALL_FEATURES.append(stdconc)
     next_l = len(ALL_FEATURES)
-    print("Std pkt conc: ", prev, next_l-1) #31
+    print("Std pkt conc: ", prev, next_l-1) 
 
     prev = next_l
     ALL_FEATURES.append(avgconc) #32
@@ -383,11 +385,6 @@ def get_ft_labels(ALL_FEATURES):
     print("% out : ", prev, next_l-1)
 
     prev = next_l
-    ALL_FEATURES.extend(altconc)
-    next_l = len(ALL_FEATURES)
-    print("alt conc: ", prev, next_l-1)
-
-    prev = next_l
     ALL_FEATURES.extend(alt_per_sec)
     next_l = len(ALL_FEATURES)
     print("alt per sec: ", prev, next_l-1)
@@ -417,15 +414,7 @@ def get_ft_labels(ALL_FEATURES):
     next_l = len(ALL_FEATURES)
     print("sum number of pkts: ", prev, next_l-1)
 
-    prev = next_l
-    ALL_FEATURES.extend(conc)
-    next_l = len(ALL_FEATURES)
-    print("Conc: ", prev, next_l-1)
-
-    prev = next_l
-    ALL_FEATURES.extend(per_sec)
-    next_l = len(ALL_FEATURES)
-    print("per sec: ", prev, next_l-1)
+   
     return
 
 # Function to count features and index mapping
@@ -464,7 +453,6 @@ def TOTAL_FEATURES(trace_data, max_size=38):
     ALL_FEATURES = []
 
     intertimestats = [x for x in interarrival_maxminmeansd_stats(list_data)[0]]
-    #timestats = time_percentile_stats(list_data)
     number_pkts = list(number_pkt_stats(list_data))
     thirtypkts = first_and_last_30_pkts_stats(list_data)
     stdconc, avgconc, medconc, minconc, maxconc, conc = pkt_concentration_stats(list_data)
@@ -488,9 +476,6 @@ def TOTAL_FEATURES(trace_data, max_size=38):
     ALL_FEATURES.extend(intertimestats)
     print("intertimestats",intertimestats)
     print(len(intertimestats))
-    #ALL_FEATURES.extend(timestats)
-    #print("timestats",timestats)
-   # print(len(timestats))
     ALL_FEATURES.extend(number_pkts)
     print("number_pkts",number_pkts)
     print(len(number_pkts))
@@ -515,20 +500,12 @@ def TOTAL_FEATURES(trace_data, max_size=38):
     ALL_FEATURES.append(sum(alt_per_sec))
     ALL_FEATURES.append(sum(number_pkts))
     ALL_FEATURES.append(sum(intertimestats))
-    #ALL_FEATURES.append(sum(timestats))
-    #ALL_FEATURES.extend(altconc) #20 fixed length
-    
-    #ALL_FEATURES.extend(alt_per_sec) #20 fixed length
-    #ALL_FEATURES.extend(conc) # 60 fixed length
-    #print(altconc)
-    #print(alt_per_sec)
-    #print(conc)
+
 
     print("Extracted features: ", len(ALL_FEATURES))
     while len(ALL_FEATURES)<max_size:
         ALL_FEATURES.append(0)
     features = ALL_FEATURES[:max_size]
-    print("Length of features after truncation:", len(features))
     return features
 
 def get_features(pkts, conn_name, limit):
@@ -547,63 +524,4 @@ def chunks(l, n):
 def checkequal(lst):
     return lst[1:] == lst[:-1]
 
-def enter_cmd_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--prefix', metavar='the prefix of filename', help='input the prefix of filename', required=True)
-    parser.add_argument('--number', metavar='number of instance to extract', help='input the number of instance', required=True)
-    parser.add_argument('--suffix', metavar='the suffix of filename', help='input the suffix of filename', required=True)
-    parser.add_argument('--limit', metavar='the minimum limit of number of pkts', help='the min limit of pkts number', required=True)
-    parser.add_argument('--start', metavar='the start number of instance', help='the number of first instance', required=True)
-    args = parser.parse_args()
-    return args
 
-
-def main():
-    args = enter_cmd_args()
-    prefix = args.prefix+'_'
-    number = int(args.number)
-    suffix = '_'+args.suffix
-    limit = int(args.limit)
-    file_num = 1
-    start = 1
-    if args.start:
-        start = int(args.start)
-    feats = {}
-    for i in range(number):
-        file_path = prefix+str(start+i)+suffix+'.csv'
-        print(file_path)
-        f = open(file_path, 'r')
-        all_pkts = list(csv.reader(f, delimiter=','))
-        curr_conn = ''
-        conn_count = 0
-        for idx, pkt in enumerate(all_pkts):
-            if idx == 0:
-                continue
-            conn_name = pkt[0]
-            if conn_name != curr_conn:
-                if conn_count != 0:
-                    features = get_features(conn_pkts, curr_conn, limit)
-                    if features:
-                        #print(features)
-                        full_conn_name = args.suffix+'_'+str(start+i)+'_'+curr_conn
-                        print(full_conn_name)
-                        feats[full_conn_name]=features
-                conn_pkts = [pkt]
-                curr_conn = conn_name
-                conn_count += 1
-            else:
-                conn_pkts.append(pkt)
-        features = get_features(conn_pkts, curr_conn, limit)
-        if features:
-            #print(features)
-            full_conn_name = args.suffix+'_'+str(start+i)+'_'+curr_conn
-            print(full_conn_name)
-            feats[full_conn_name] = features
-    file_type = prefix.split('_')[0]
-    out_path = 'feats_'+str(start)+'_'+str(start+number-1)+suffix+'_'+file_type+'.json'
-    save_f = open(out_path, 'w')
-    save_f.write(json.dumps(feats))
-    save_f.close()
-
-if __name__ == "__main__":
-    main()
