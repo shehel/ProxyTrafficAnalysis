@@ -31,7 +31,7 @@ curdr = os.getcwd()
 print("Current working directory:", curdr)
 
 # Define the path for search keywords
-SEARCH_KWDS = curdr + "/search_key_words_october"
+SEARCH_KWDS = curdr + "/res/search_key_words_october"
 print("Search keywords path:", SEARCH_KWDS)
 
 # Global variable example
@@ -991,8 +991,8 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
 		#open_new_tab()
 		#domain_idx += 1
 
-def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list', proxy_app=2):
-
+def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_list', proxy_app=2):
+	
 	domains = get_domains(curdr+'/'+file_path)
 	#print(domains)
 	if len(domains) == 0:
@@ -1054,8 +1054,11 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list'
 			# Then stop emulator
 			os.system("pkill -f emulator")
 			log.close()
+			
 
-def run_proxy(proxy_app, log, proxy_file='apks_to_run'):
+			#stop_emu(None)
+
+def run_proxy(proxy_app, log, proxy_file='res/apks_to_run'):
 	f = open(curdr+'/'+proxy_file, 'r')
 	file_exist = False
 	lines = f.readlines()
