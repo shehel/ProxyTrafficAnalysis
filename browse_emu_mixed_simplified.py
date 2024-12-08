@@ -998,7 +998,7 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list'
 	if len(domains) == 0:
 		return
 
-	for i in range(5):
+	for i in range(2):
 		now = datetime.now()
 		date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
 		log = open("log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
@@ -1031,29 +1031,29 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list'
 				log.write("Attempts at opening GOOGLE CHROME failed!\n")
 		setup_chrome()
 		try:
-			try:
-				run_proxy(proxy_app, log)
-				time.sleep(10)
-				browse_mixed_websites(domains, log, profile, mixed_type)
-				#time.sleep(collect_time)
-			except TimeoutError as e:
-				print(e)
-				print("Traffic collection time limit "+str(collect_time)+" secs is reached. Stop collecting traffic and close emulator......")
-				log.write("Traffic collection time limit "+str(collect_time)+ "secs is reached. Stop collecting traffic and close emulator......\n")
-				raise e  # Re-raise to ensure it's caught in outer try-except
-			except Exception as e:
-				print("Error happened:", e)
-				log.write("Error happened: "+str(e)+"\n")
-				raise e  # Re-raise to ensure it's caught in outer try-except
+			run_proxy(proxy_app, log)
+			time.sleep(10)
+			browse_mixed_websites(domains, log, profile, mixed_type)
+		# time.sleep(collect_time)
+		except TimeoutError as e:
+			print(e)
+			print(
+				f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......")
+			log.write(
+				f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......\n")
 		except KeyboardInterrupt:
 			print("KeyboardInterrupt received. Finalizing remote capture.")
 			log.write("KeyboardInterrupt received. Finalizing remote capture.\n")
+		except Exception as e:
+			print("Error happened:", e)
+			log.write(f"Error happened: {e}\n")
 		finally:
 			# Finalize remote capture before stopping emulator
 			finalize_remote_capture()
 			# Then stop emulator
 			os.system("pkill -f emulator")
 			log.close()
+			stop_emu(pid)
 
 def run_proxy(proxy_app, log, proxy_file='apks_to_run'):
 	f = open(curdr+'/'+proxy_file, 'r')
