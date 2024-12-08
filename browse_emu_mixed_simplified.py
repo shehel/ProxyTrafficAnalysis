@@ -1001,7 +1001,7 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 	for i in range(5):
 		now = datetime.now()
 		date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
-		log = open("log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
+		log = open("data/logs/log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
 
 		pid = None
 		activity = "low"
