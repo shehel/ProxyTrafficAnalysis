@@ -25,21 +25,8 @@ sh extract_feats/zeek.sh data/pcaps/<traffic_type>_N_<profile>.pcap
 ### Process Log Files
 Run the renaming script to ensure consistent file naming:
 ```bash
-python3 extract_feats/rename.py
+python3 extract_feats/process_pcap.py --pcap_path {PCAP_PATH}
 ```
-**Note**: Verify that the new filenames are correct after running the script.
-
-Extract domains and connection lists from SSL logs:
-```bash
-python3 extract_feats/extract_domains.py
-```
-**Important**: Process one log file at a time.
-
-Split and summarize connections from the PCAP file based on the connection list:
-```bash
-python3 extract_feats/split_connections.py
-```
-
 ### Feature Extraction
 Extract features from split proxy connections and normal connections:
 ```bash
