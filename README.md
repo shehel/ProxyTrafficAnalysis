@@ -27,15 +27,25 @@ Run the below scrip to get connections split between proxy (gateway) and normal 
 ```bash
 python3 extract_feats/process_pcap.py --pcap_path {PCAP_PATH}
 ```
+
+### Get labeled traffic 
+```bash
+extract_feats/get_labeled_conn.py --number n --suffix profile
+```
+
+n: the total number of pcaps
+profile: low/medium/high
+
+
 ### Feature Extraction
 Extract features from split proxy connections and normal connections:
+
 ```bash
-python3 extract_feats/extract_features.py
-```
-Merge extracted features into a single dataset:
-```bash
-python3 extract_feats/merge_feats.py
-```
+python3 extract_feats/get_all_features_lim_lbl.py --prefix p --number n --suffix profile --limit x
+p: the prefix either background or relayed
+profile: low/medium/high
+n: the total number of files used
+limit: packet limit to be used for the features extraction ( 50 in our case)
 
 ### Model Training
 Use the processed features to train AutoGluon models.
