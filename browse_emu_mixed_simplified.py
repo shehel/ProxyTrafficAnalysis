@@ -10,18 +10,33 @@ import xml.dom.minidom as xx
 import random
 
 global ANDROID_HOME
+global EMU_PATH
 global PCAP_PATH
-global curdr                                                                                                                                          
-ANDROID_HOME = "/home/mrabhi/androidsdk"
-EMU_PATH = "/home/mrabhi/androidsdk/emulator"
-os.chdir("/home/mrabhi/scripts")
+global curdr
 
+# Updated paths based on the new setup
+# Set environment variables or use defaults
+ANDROID_HOME = os.getenv("ANDROID_HOME", "/default/androidsdk/path")
+EMU_PATH = os.getenv("EMU_PATH", f"{ANDROID_HOME}/emulator")
+PCAP_PATH = os.getenv("PCAP_PATH", "/default/pcap/path")
+SCRIPT_DIR = os.getenv("SCRIPT_DIR", "/default/script/path")
+
+
+# Change to the scripts directory
+import os
+os.chdir(SCRIPT_DIR)
+
+# Print current working directory
 curdr = os.getcwd()
-print(curdr)
-PCAP_PATH = "/home/mrabhi/scripts/traffic"
-print(PCAP_PATH)
-SEARCH_KWDS = curdr + "/search_key_words_october"
+print("Current working directory:", curdr)
+
+# Define the path for search keywords
+SEARCH_KWDS = curdr + "/res/search_key_words_october"
+print("Search keywords path:", SEARCH_KWDS)
+
+# Global variable example
 global clickkwds
+
 clickkwds = ["同意","accept all", "accept & continue", "no thanks", "start", "enter", "i agree", "ok", "skip", "allow", "continue", "agree", "got it", "got it!", "yes", "continue in browser", "i got it", "always", "agree & continue", "retry", "only this time", "yes i am 18+", "accept all cookies", "accept cookies", "not now", "maybe later", "yes, i am happy", "i accept", "accept all", "allow all cookies", "allow all", "accept cookies & continue", "cancel", "accept & close", "i am 18 or older", "applica", "accetta e continua", "near me", "jai compris", "jeg forstår", "accetta", "accetta tutti", "chiudi video", "chiudi", "__ 滿 18 歲, 請按此 __"]
 global loginkwds
 loginkwds = ["log in", "login", "sign in", "sign in with email", "already a member? log in", "账号密码登录"]
@@ -41,7 +56,7 @@ global searchkwds
 searchkwds = search_kwds
 
 global search_bar_kwds
-search_bar_kwds = ["search input", "google search", "submit", "search-box", "searchbox_input", "keyword"]			
+search_bar_kwds = ["search input", "google search", "submit", "search-box", "searchbox_input", "keyword"]
 
 #Available and useful view size [0, 280] [1440, 2392]
 def get_domains(basep):
@@ -53,8 +68,8 @@ def get_domains(basep):
 	return domains[1:]
 
 def stop_emu(pid=None):
-	#x = os.popen('tasklist | findstr "qemu-system-x86_64.exe').read() 
-	emu_path = ("/home/dcswaka/Android/Sdk/emulator/")
+	#x = os.popen('tasklist | findstr "qemu-system-x86_64.exe').read()
+	emu_path = EMU_PATH
 	x = os.popen('ps aux | grep "emulator"').read()
 	print("Running processes: ", x)
 	if emu_path not in x:
@@ -71,16 +86,56 @@ def stop_emu(pid=None):
 			print("Sleeping for clean emulator shutdown.....")
 			time.sleep(30)
 			break
+
 	return
 
+def get_app_uid(package_name):
+	"""
+	Retrieve the UID of an app by its package name and convert from u0_aXXX format to numeric UID.
+	Android apps with UID format u0_aXXX have a numerical UID of 10000 + XXX.
+
+	Args:
+		package_name (str): The package name of the Android app
+
+	Returns:
+		str: Numeric UID if found and converted successfully, None otherwise
+	"""
+	try:
+		result = os.popen(f"adb shell dumpsys package {package_name} | grep userId").read()
+		if "userId=" in result:
+			uid_part = result.split("userId=")[1].strip()
+
+			# Handle u0_aXXX format
+			if uid_part.startswith("u0_a"):
+				# Extract the number after u0_a
+				app_id = uid_part.split("u0_a")[1]
+				# Strip any non-numeric characters
+				app_id = ''.join(filter(str.isdigit, app_id))
+
+				if app_id.isdigit():
+					# Convert to numeric UID (10000 + app number)
+					numeric_uid = str(10000 + int(app_id))
+					return numeric_uid
+
+			print(f"Could not convert UID format for {package_name}: {uid_part}")
+			return None
+		else:
+			print(f"Unable to find UID for package: {package_name}")
+			return None
+
+	except Exception as e:
+		print(f"Error while retrieving UID for {package_name}: {e}")
+		return None
+
 def start_emu(pcapname, av='30'):
-	
+
 	if not os.path.isfile(EMU_PATH+"/emulator"):
 		print("Emulator bash script missing!")
 
 	print("Starting emulator with android-"+av)
-	os.chdir(EMU_PATH)
-	pid = subprocess.Popen("./emulator -avd avd30 -no-audio -no-window -wipe-data -tcpdump " + pcapname,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+	#os.chdir(EMU_PATH)
+	pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+	#pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	print("Started emulator with PID: ",pid)
@@ -92,6 +147,9 @@ def start_emu(pcapname, av='30'):
 		time.sleep(90)
 	else:
 		time.sleep(90)
+
+	print("Running adb as root....")
+	os.system("adb root")
 	return
 
 def check_status():
@@ -134,29 +192,29 @@ def open_chrome(package='com.android.chrome', mainactivity="com.google.android.a
 		return status, True
 
 def get_uidump():
-    os.system("rm window_dump.xml")
-    print("1* Getting App UI dump file.....")
-    curdr = os.getcwd()
-    result = os.popen('adb shell uiautomator dump').read()
-    if "ERROR" in result or "error" in result or "Error" in result:
-        return False
-    result = os.popen('adb pull sdcard/window_dump.xml '+curdr+'/.').read()
-    if "ERROR" in result or "error" in result or "Error" in result:
-        return False
-    dumpf = curdr+"/window_dump.xml"
-    print("Finish dumping UI......")
-    return dumpf
+	os.system("rm window_dump.xml")
+	print("1* Getting App UI dump file.....")
+	curdr = os.getcwd()
+	result = os.popen('adb shell uiautomator dump').read()
+	if "ERROR" in result or "error" in result or "Error" in result:
+		return False
+	result = os.popen('adb pull sdcard/window_dump.xml '+curdr+'/.').read()
+	if "ERROR" in result or "error" in result or "Error" in result:
+		return False
+	dumpf = curdr+"/window_dump.xml"
+	print("Finish dumping UI......")
+	return dumpf
 
 def execute_click(x, y):
-    print("adb shell input mouse -d 0 tap "+x+" "+y)
-    os.system("adb shell input tap "+x+" "+y)
-    return
+	print("adb shell input tap "+x+" "+y)
+	os.system("adb shell input tap "+x+" "+y)
+	return
 
 def execute_click_middle(x, y, xxe, yye):
 	print("Click at the middle position......")
 	point_x = str(int((int(x)+int(xxe))/2))
 	point_y = str(int((int(y)+int(yye))/2))
-	print("adb shell input mouse -d 0 tap "+point_x+" "+point_y)
+	print("adb shell input tap "+point_x+" "+point_y)
 	os.system("adb shell input tap "+point_x+" "+point_y)
 	return
 
@@ -169,16 +227,16 @@ def execute_scroll(x, y, xxe, yye, duration="3000"):
 	return
 
 def execute_enter():
-    os.system("adb shell input keyevent 66")
-    return
+	os.system("adb shell input keyevent 66")
+	return
 
 def execute_tab():
-    os.system("adb shell input keyevent 61")
-    return
+	os.system("adb shell input keyevent 61")
+	return
 
 def enter_text(text):
-    os.system("adb shell input text '"+text+"'")
-    return
+	os.system("adb shell input text '"+text+"'")
+	return
 
 def execute_back():
 	os.system("adb shell input keyevent 4")
@@ -191,12 +249,12 @@ def execute_page_up():
 	os.system("adb shell input keyevent 92")
 
 def is_login_kwd(k):
-    word = k.lower()
-    for keywd in loginkwds:
-        #print(word, "in", keywd, "?")
-        if word == keywd:
-            return True
-    return False
+	word = k.lower()
+	for keywd in loginkwds:
+		#print(word, "in", keywd, "?")
+		if word == keywd:
+			return True
+	return False
 
 def is_account_kwd(k):
 	word = k.lower()
@@ -288,21 +346,21 @@ def get_actions(dumpf):
 	return actiondt
 
 def sort_actions(actiondt):
-    ##print(actiondt)
-    # click/checkwords: [xx,yy,xx_end,yy_end]
-    clickables = dict()
-    #check = dict()
-    # clickable & enabled
-    for k, v in actiondt.items():
-    	clickable = v["clickable"]
-    	enabled = v["enabled"]
-    	#checkable = v["checkable"]
-    	xx, yy, xxe, yye = v['xy']
-    	buttontype = v["uitype"]
-    	if clickable and enabled:
-    		clickables[k] = [xx,yy,xxe,yye,buttontype]
+	##print(actiondt)
+	# click/checkwords: [xx,yy,xx_end,yy_end]
+	clickables = dict()
+	#check = dict()
+	# clickable & enabled
+	for k, v in actiondt.items():
+		clickable = v["clickable"]
+		enabled = v["enabled"]
+		#checkable = v["checkable"]
+		xx, yy, xxe, yye = v['xy']
+		buttontype = v["uitype"]
+		if clickable and enabled:
+			clickables[k] = [xx,yy,xxe,yye,buttontype]
 
-    return clickables
+	return clickables
 
 def choose_action(clickables):
 	click_order = []
@@ -363,7 +421,7 @@ def click_single_clkkwd(dumpf, result_needed=False, kwds=None, origin="text", oc
 	dump = xx.parse(dumpf)
 	if dump == None:
 		return False
-	
+
 	result = False
 	nodes = dump.getElementsByTagName("node")
 	occurrence = 0
@@ -402,7 +460,6 @@ def close_translate_tab(dumpf):
 			execute_click(str(1244), str(2196))
 			return True
 	return False
-	
 
 def access_domain(domain):
 	dumpf = get_uidump()
@@ -427,7 +484,7 @@ def access_domain(domain):
 	enter_text('https://'+domain+'/')
 	#time.sleep(2)
 	execute_enter()
-	
+
 def is_in_kwds(k):
 	word = k.lower()
 	for keywd in clickkwds:
@@ -460,24 +517,8 @@ def setup_chrome():
 #com.android.chrome:id/tab_switcher_button: [1104,84][1272,280]
 #com.android.chrome:id/new_tab_button: [0,84][196,280]
 def open_new_tab(domain):
-	#print("Open a new tab......")
-	#time.sleep(1)
-	#os.system("adb shell am start -n com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity -d 'https://"+domain+"'")
-	print("Opening a new tab...")
-	os.system("adb shell input tap 100 180")  # Coordinates for the new tab button
-	time.sleep(2)  # Wait for the new tab to be created
-
-	# Step 2: Focus on the address bar (tap on the address bar area)
-	os.system("adb shell input tap 300 150")  # Adjust coordinates for address bar if needed
-	time.sleep(1)
-
-	# Step 3: Input the URL
-	os.systesm(f"adb shell input text 'https://{domain}?source=emu'")
-	time.sleep(1)
-
-	# Step 4: Press "Enter" to load the URL
-	os.system("adb shell input keyevent 66")  # Key event 66 corresponds to the "Enter" key
-	print(f"Navigated to https://{domain}")
+	os.system("adb shell am start -n com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity -d 'https://" + domain + "?source=user'")
+	print(f"Navigated to https://{domain}?source=emu")
 
 def generate_interaction(profile=1, last_stay=False):
 	#1: scroll 2: click 3: stay_and_read
@@ -493,7 +534,7 @@ def generate_interaction(profile=1, last_stay=False):
 		idx = random.randint(2, 9)
 	else:
 		idx = random.randint(0, 9)
-	
+
 	if profile == 1:
 		return low_profile[idx]
 	elif profile == 2:
@@ -507,7 +548,7 @@ def input_search_kwds(domain, dumpf):
 	if not os.path.isfile(dumpf):
 		print("Failed to obtaine UI dump for APK. Exiting UI interaction")
 		return False
-	
+
 	if domain == "booking.com":
 		os.system('adb shell input keyevent 20')
 		time.sleep(2)
@@ -525,7 +566,7 @@ def input_search_kwds(domain, dumpf):
 					print("Click search button for booking.com......")
 					coordinates = elem.getAttribute("bounds")
 					x, y, xxe, yye = get_coordinates(coordinates)
-					execute_click_middle(x, y, xxe, yye)	
+					execute_click_middle(x, y, xxe, yye)
 					return
 				else:
 					continue
@@ -542,7 +583,7 @@ def input_search_kwds(domain, dumpf):
 				print("Click search bar......")
 				coordinates = elem.getAttribute("bounds")
 				x, y, xxe, yye = get_coordinates(coordinates)
-				execute_click_middle(x, y, xxe, yye)	
+				execute_click_middle(x, y, xxe, yye)
 				break
 
 	idx = random.randint(0, len(searchkwds)-1)
@@ -550,7 +591,7 @@ def input_search_kwds(domain, dumpf):
 	enter_text(kwd)
 	execute_enter()
 
-def enter_username_password(domain, username="qcri2023@gmail.com", password="Qcriproxytest@42"):
+def enter_username_password(domain, username="qcri2024@gmail.com", password="Qcriproxytest@42"):
 	enter_text(username)
 	if domain == "twitter.com":
 		execute_enter()
@@ -578,9 +619,8 @@ def enter_username_password(domain, username="qcri2023@gmail.com", password="Qcr
 	time.sleep(2)
 	execute_enter()
 
-#email username = "testhy787@gmail.com"
-#email password = "test_hy123@HY"
-def login(domain, username="qcri2023@gmail.com", password="Qcriproxytest@42"):
+
+def login(domain, username="qcri2024@gmail.com", password="Qcriproxytest@42"):
 	tb_account = "tb239769136454"
 	special_domains=['youtube.com','taobao.com', 'twitter.com', 'pinterest.com', 'goodreads.com', 'quora.com', 'instagram.com']
 	clickkwd_domains = ['linkedin.com', 'youtube.com']
@@ -707,24 +747,7 @@ def login(domain, username="qcri2023@gmail.com", password="Qcriproxytest@42"):
 				print("Find the click keyword(login):", text)
 				execute_click_middle(x, y, xxe, yye)
 				break
-	'''
-	if domain == "pinterest.com":
-		time.sleep(2)
-		dumpf = get_uidump()
-		result = close_translate_tab(dumpf)
-		if result:
-			dumpf = get_uidump()
-		dump = xx.parse(dumpf)
-		nodes = dump.getElementsByTagName("node")
-		for elem in nodes:
-			text = elem.getAttribute("text")
-			coordinates = elem.getAttribute("bounds")
-			x, y, xxe, yye = get_coordinates(coordinates)
-			if is_in_kwds(text) and int(y)>280:
-				print("Find the click keyword:", text)
-				execute_click_middle(x, y, xxe, yye)
-				break
-	'''
+
 	return
 
 #Low profile = [scroll 30%, click 20%, stay_and_read 50%]
@@ -732,7 +755,7 @@ def login(domain, username="qcri2023@gmail.com", password="Qcriproxytest@42"):
 #High profile = [scroll 30%, click 50%, stay_and_read 20%]
 #@timeout_decorator.timeout(int(sys.argv[3]))
 def interact(domain, profile=1, searching=False):
-	
+
 	#random.seed(42)
 	#For very short interaction duration
 	if profile == 1:
@@ -968,8 +991,8 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
 		#open_new_tab()
 		#domain_idx += 1
 
-def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list', proxy_app=2):
-	
+def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_list', proxy_app=2):
+
 	domains = get_domains(curdr+'/'+file_path)
 	#print(domains)
 	if len(domains) == 0:
@@ -978,8 +1001,8 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list'
 	for i in range(5):
 		now = datetime.now()
 		date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
-		log = open("log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
-	
+		log = open("data/logs/log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
+
 		pid = None
 		activity = "low"
 		if profile == 2:
@@ -988,43 +1011,53 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='Alexa_list'
 			activity = "high"
 		stop_emu(pid)
 		print("Starting emulator for mixed domains with proxy app in background......")
-		pid = start_emu(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap', av='30')
+		pid = start_emu(PCAP_PATH+'/mixed_'+date_time_str+'_'+activity+'.pcap', av='30')
 		log.write(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap')
+
+		# Setup remote capture app
+		setup_remote_capture()
+
 		print("Emulator ready for opening GOOGLE CHROME......")
 		status, result = open_chrome()
-		print("GOOGLE CHROME openning result => ", result)
-		log.write("mixed domains\nOpenning Chrome => result: "+str(result)+" => Emulator status: "+str(status)+"\n")
+		print("GOOGLE CHROME opening result => ", result)
+		log.write("mixed domains\nOpening Chrome => result: "+str(result)+" => Emulator status: "+str(status)+"\n")
 		time.sleep(4)
 		if not result:
 			if status:
 				print("Attempts at opening GOOGLE CHROME failed!")
 				log.write("Attempts at opening GOOGLE CHROME failed!\n")
 			else:
-				print("Emulator offline. Pls check whether emulator is running!")
+				print("Emulator offline. Please check whether emulator is running!")
 				log.write("Attempts at opening GOOGLE CHROME failed!\n")
 		setup_chrome()
 		try:
 			run_proxy(proxy_app, log)
 			time.sleep(10)
 			browse_mixed_websites(domains, log, profile, mixed_type)
-			#time.sleep(collect_time)
+		# time.sleep(collect_time)
 		except TimeoutError as e:
 			print(e)
-			print("Traffic collection time limit "+str(collect_time)+" secs is reached. Stop collecting traffic and close emulator......")
-			log.write("Traffic collection time limit "+str(collect_time)+ "secs is reached. Stop collecting traffic and close emulator......\n")
-			log.close()
-			os.system("pkill -f emulator")
-
-			#stop_emu(None)
+			print(
+				f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......")
+			log.write(
+				f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......\n")
+		except KeyboardInterrupt:
+			print("KeyboardInterrupt received. Finalizing remote capture.")
+			log.write("KeyboardInterrupt received. Finalizing remote capture.\n")
 		except Exception as e:
-			print("Error happend:", e)
-			log.write("Error happend: "+str(e)+"\n")
-			log.close()
+			print("Error happened:", e)
+			log.write(f"Error happened: {e}\n")
+		finally:
+			# Finalize remote capture before stopping emulator
+			finalize_remote_capture()
+			# Then stop emulator
 			os.system("pkill -f emulator")
+			log.close()
+			stop_emu(None)
 
 			#stop_emu(None)
 
-def run_proxy(proxy_app, log, proxy_file='apks_to_run'):
+def run_proxy(proxy_app, log, proxy_file='res/apks_to_run'):
 	f = open(curdr+'/'+proxy_file, 'r')
 	file_exist = False
 	lines = f.readlines()
@@ -1074,7 +1107,73 @@ def run_proxy(proxy_app, log, proxy_file='apks_to_run'):
 	else:
 		print("Skipping: ", service)
 		log.write("Proxy app was skipped. No proxy app will run in background.\n")
-	
+
+def setup_remote_capture():
+	# Install the APK
+	apk_path = SCRIPT_DIR + "/apkfiles/com.emanuelef.remote_capture_78.apk"
+	install_cmd = f"adb -s emulator-5554 install -g {apk_path}"
+	os.system(install_cmd)
+
+	# Launch the app
+	launch_cmd = "adb shell am start -n com.emanuelef.remote_capture/.activities.MainActivity"
+	os.system(launch_cmd)
+
+	# Wait for app to launch
+	time.sleep(2)
+
+	# Click on skip
+	execute_click('35', '604')
+
+	# Click on three settings dots
+	execute_click('300', '52')
+
+	# Click on settings
+	execute_click('160', '108')
+
+	# Scroll down (swipe down)
+	for i in range(2):
+		execute_scroll('160', '626', '160', '20', '1000')
+
+	# Toggling Trailer
+	execute_click('271', '310')
+
+	# Going back to home screen
+	execute_click('25', '50')
+
+	# Clicking on "No Dump"
+	execute_click('280', '466')
+
+	# Clicking on "PCAP"
+	execute_click('104', '399')
+
+	# Clicking on "Ready"
+	execute_click('152', '284')
+
+	# Clicking on "OK"
+	execute_click('285', '445')
+
+	# Clicking on "OK" (Again)
+	execute_click('285', '445')
+
+	# Wait for a moment to ensure settings are applied
+	time.sleep(2)
+
+def finalize_remote_capture():
+	# Bring app to foreground
+	os.system("adb shell monkey -p com.emanuelef.remote_capture -c android.intent.category.LAUNCHER 1")
+	time.sleep(2)
+	# Stopping run of app
+	execute_click('252', '49')
+	time.sleep(1)
+	# Click on "OK"
+	execute_click('60', '370')
+	time.sleep(1)
+	# Pull file from Downloads
+	os.system("adb pull /sdcard/Download/PCAPdroid ./")
+	os.system("mv PCAPdroid/* " + PCAP_PATH)
+	# Optionally, delete the files from the device
+	os.system("adb shell rm -rf /sdcard/Download/PCAPdroid")
+	print("Remote capture finalized and files moved.")
 
 if __name__ == "__main__":
 	print("USAGE: python3 browse_emu.py <time in mts: eg. 1/5/10/20> <user profile: eg. low/medium/high> <mixed traffic: eg. yes/no> <proxy app(enter # of app): eg.2(Bright Data)>")
@@ -1098,4 +1197,5 @@ if __name__ == "__main__":
 		mixed_type = True
 	else:
 		mixed_type = False
+
 	browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed_type, proxy_app=proxy_app)
