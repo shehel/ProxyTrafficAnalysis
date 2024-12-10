@@ -76,11 +76,18 @@ def In_Out(list_data):
 ############### TIME FEATURES #####################
 
 def inter_pkt_time(list_data):
-    times = [x[0] for x in list_data]
-    temp = []
-    for elem,next_elem in zip(times, times[1:]+[times[0]]):
-        temp.append(next_elem-elem)
-    return temp[:-1]
+    if not list_data:
+        return []
+
+    times = [x[0] for x in list_data if x]  # Safeguard against empty items
+    print("times=", times)
+
+    if len(times) < 2:
+        print(f"Insufficient data for inter-packet times: {times}")
+        return []
+    return [next_elem - elem for elem, next_elem in zip(times, times[1:] + [times[0]])]
+
+
 
 def interarrival_times(list_data):
     In, Out = In_Out(list_data)
@@ -224,8 +231,8 @@ def avg_pkt_ordering_stats(list_data):
         if p[1] == 1:
             temp2.append(c2)
         c2+=1
-    avg_in = sum(temp1)/float(len(temp1))
-    avg_out = sum(temp2)/float(len(temp2))
+    avg_in = sum(temp1) / float(len(temp1)) if temp1 else 0
+    avg_out = sum(temp2) / float(len(temp2)) if temp2 else 0
 
     return avg_in, avg_out, np.std(temp1), np.std(temp2)
 
