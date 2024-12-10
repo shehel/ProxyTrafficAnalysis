@@ -42,7 +42,9 @@ Split and summarize connections from the PCAP file based on the connection list:
 python3 extract_feats/split_connections.py
 ```
 ### 5. Get labeled traffic 
+```bash
 extract_feats/get_labeled_conn.py --number n --suffix profile
+```
 n: the total number of pcaps
 profile: low/medium/high
 ### Feature Extraction
