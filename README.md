@@ -23,7 +23,7 @@ sh extract_feats/zeek.sh data/pcaps/<traffic_type>_N_<profile>.pcap
 - `LogAscii::use_json=T`: Output logs in JSON format
 
 ### Process Log Files
-Run the renaming script to ensure consistent file naming:
+Run the below scrip to get connections split between proxy (gateway) and normal (background + relay):
 ```bash
 python3 extract_feats/process_pcap.py --pcap_path {PCAP_PATH}
 ```
