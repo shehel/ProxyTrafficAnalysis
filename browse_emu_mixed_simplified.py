@@ -16,11 +16,10 @@ global curdr
 
 # Updated paths based on the new setup
 # Set environment variables or use defaults
-ANDROID_HOME = os.getenv("ANDROID_HOME", "/default/androidsdk/path")
-EMU_PATH = os.getenv("EMU_PATH", f"{ANDROID_HOME}/emulator")
+ANDROID_HOME = os.getenv('ANDROID_HOME')
+EMU_PATH = os.getenv('EMU_PATH')
 PCAP_PATH = os.getenv("PCAP_PATH", "/default/pcap/path")
 SCRIPT_DIR = os.getenv("SCRIPT_DIR", "/default/script/path")
-
 
 # Change to the scripts directory
 import os
@@ -134,8 +133,9 @@ def start_emu(pcapname, av='30'):
 
 	print("Starting emulator with android-"+av)
 	os.chdir(EMU_PATH)
+
 	pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-	#pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	print("Started emulator with PID: ",pid)
@@ -144,9 +144,9 @@ def start_emu(pcapname, av='30'):
 	print("Sleeping 60 seconds for clean emulator startup....")
 	os.chdir(curdr)
 	if av == "31":
-		time.sleep(90)
+		time.sleep(60)
 	else:
-		time.sleep(90)
+		time.sleep(60)
 
 	print("Running adb as root....")
 	os.system("adb root")
@@ -214,7 +214,7 @@ def execute_click_middle(x, y, xxe, yye):
 	print("Click at the middle position......")
 	point_x = str(int((int(x)+int(xxe))/2))
 	point_y = str(int((int(y)+int(yye))/2))
-	print("adb shell input tap "+point_x+" "+point_y)
+	print("adb shell input mouse -d 0 tap "+point_x+" "+point_y)
 	os.system("adb shell input tap "+point_x+" "+point_y)
 	return
 
@@ -397,12 +397,14 @@ def perform_click(x, y, xxe, yye, acttype):
 def perform_scroll():
 	print("Start scroll the web page......")
 	idx = random.randint(0, 5)
+	lcd_height = 640
+	lcd_width = 320
 	if idx == 0:
 		print("1/3 page will be scrolled down")
-		execute_scroll('0', '797', '0', '280')
+		execute_scroll('0', str(int(lcd_height * (2/3))), '0', '0')
 	elif idx == 1:
 		print("1/2 page will be scrolled down")
-		execute_scroll('0', '1196', '0', '280')
+		execute_scroll('0', str(int(lcd_height / 2)), '0', '0')
 	elif idx == 5:
 		print("Stay for 3 seconds without scrolling")
 		time.sleep(3)
@@ -410,7 +412,7 @@ def perform_scroll():
 		print(str(idx-1),"pages will be scrolled down")
 		time_slice = str(int(3000/(idx-1)))
 		for i in range(idx-1):
-			execute_scroll('0', '2392', '0', '280', time_slice)
+			execute_scroll('0', str(lcd_height - 1), '0', '0', time_slice)
 
 def click_single_clkkwd(dumpf, result_needed=False, kwds=None, origin="text", occur=1):
 	if not os.path.isfile(dumpf):
@@ -440,24 +442,30 @@ def click_single_clkkwd(dumpf, result_needed=False, kwds=None, origin="text", oc
 	if result_needed:
 		return result
 
+
 def close_translate_tab(dumpf):
 	if dumpf == False:
 		return False
 
 	if not os.path.isfile(dumpf):
-		print("Failed to obtaine UI dump for APK. Exiting UI interaction")
+		print("Failed to obtain UI dump for APK. Exiting UI interaction")
 		return False
 
 	dump = xx.parse(dumpf)
-	if dump == None:
+	if dump is None:
 		return False
 
+	lcd_height = 640
+	lcd_width = 320
 	nodes = dump.getElementsByTagName("node")
 	for elem in nodes:
 		res_id = elem.getAttribute("resource-id")
 		if res_id == "com.android.chrome:id/infobar_close_button":
 			print("Close translate button......")
-			execute_click(str(1244), str(2196))
+			# Proportional coordinates based on the new screen dimensions
+			x_coord = int(lcd_width * (1244 / 1080))  # Adjust x-coordinate based on width
+			y_coord = int(lcd_height * (2196 / 1920))  # Adjust y-coordinate based on height
+			execute_click(str(x_coord), str(y_coord))
 			return True
 	return False
 
@@ -517,8 +525,8 @@ def setup_chrome():
 #com.android.chrome:id/tab_switcher_button: [1104,84][1272,280]
 #com.android.chrome:id/new_tab_button: [0,84][196,280]
 def open_new_tab(domain):
-	os.system("adb shell am start -n com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity -d 'https://" + domain + "?source=user'")
-	print(f"Navigated to https://{domain}?source=emu")
+	os.system("adb shell am start -n com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity -d 'https://" + domain + "'")
+	print(f"Navigated to https://{domain}")
 
 def generate_interaction(profile=1, last_stay=False):
 	#1: scroll 2: click 3: stay_and_read
@@ -998,7 +1006,9 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 	if len(domains) == 0:
 		return
 
-	for i in range(2):
+
+	for i in range(1):
+
 		now = datetime.now()
 		date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
 		log = open("data/logs/log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
