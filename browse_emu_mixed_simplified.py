@@ -133,8 +133,8 @@ def start_emu(pcapname, av='30'):
 		print("Emulator bash script missing!")
 
 	print("Starting emulator with android-"+av)
-	#os.chdir(EMU_PATH)
-	pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+	os.chdir(EMU_PATH)
+	pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -992,13 +992,13 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
 		#domain_idx += 1
 
 def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_list', proxy_app=2):
-
+	
 	domains = get_domains(curdr+'/'+file_path)
 	#print(domains)
 	if len(domains) == 0:
 		return
 
-	for i in range(5):
+	for i in range(2):
 		now = datetime.now()
 		date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
 		log = open("data/logs/log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
@@ -1010,10 +1010,14 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 		elif profile == 3:
 			activity = "high"
 		stop_emu(pid)
-		print("Starting emulator for mixed domains with proxy app in background......")
-		pid = start_emu(PCAP_PATH+'/mixed_'+date_time_str+'_'+activity+'.pcap', av='30')
-		log.write(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap')
-
+		if mixed_type:
+			print("Starting emulator for mixed domains with proxy app in background......")
+			pid = start_emu(PCAP_PATH+'/mixed_'+date_time_str+'_'+activity+'.pcap', av='30')
+			log.write(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap')
+		else:
+			print("Starting emulator for bg only traffic......")
+			pid = start_emu(PCAP_PATH+'/bg_'+date_time_str+'_'+activity+'.pcap', av='30')
+			log.write(PCAP_PATH+'/bg_'+str(i+28)+'_'+activity+'.pcap')
 		# Setup remote capture app
 		setup_remote_capture()
 
@@ -1031,7 +1035,8 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 				log.write("Attempts at opening GOOGLE CHROME failed!\n")
 		setup_chrome()
 		try:
-			run_proxy(proxy_app, log)
+			if mixed_type:
+				run_proxy(proxy_app, log)
 			time.sleep(10)
 			browse_mixed_websites(domains, log, profile, mixed_type)
 		# time.sleep(collect_time)
@@ -1123,35 +1128,35 @@ def setup_remote_capture():
 
 	# Click on skip
 	execute_click('35', '604')
-
+	time.sleep(2)
 	# Click on three settings dots
 	execute_click('300', '52')
-
+	time.sleep(2)
 	# Click on settings
 	execute_click('160', '108')
-
+	time.sleep(2)
 	# Scroll down (swipe down)
 	for i in range(2):
 		execute_scroll('160', '626', '160', '20', '1000')
-
+		time.sleep(2)
 	# Toggling Trailer
 	execute_click('271', '310')
-
+	time.sleep(2)
 	# Going back to home screen
 	execute_click('25', '50')
-
+	time.sleep(2)
 	# Clicking on "No Dump"
 	execute_click('280', '466')
-
+	time.sleep(2)
 	# Clicking on "PCAP"
 	execute_click('104', '399')
-
+	time.sleep(2)
 	# Clicking on "Ready"
 	execute_click('152', '284')
-
+	time.sleep(2)
 	# Clicking on "OK"
 	execute_click('285', '445')
-
+	time.sleep(2)
 	# Clicking on "OK" (Again)
 	execute_click('285', '445')
 
