@@ -134,7 +134,7 @@ def start_emu(pcapname, av='30'):
 	print("Starting emulator with android-"+av)
 	os.chdir(EMU_PATH)
 
-	pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+	pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 	#pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -1023,13 +1023,13 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 
 		if mixed_type:
 			print("Starting emulator for mixed domains with proxy app in background......")
-			file_name = PCAP_PATH+'/mixed_'+date_time_str+'_'+activity+'.pcap'
-			pid = start_emu(file_name, av='30')
+			file_name = '/mixed_'+date_time_str+'_'+activity+'.pcap'
+			pid = start_emu(PCAP_PATH+file_name, av='30')
 			log.write(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap')
 		else:
 			print("Starting emulator for bg only traffic......")
-			file_name = PCAP_PATH+'/bg_'+date_time_str+'_'+activity+'.pcap'
-			pid = start_emu(file_name, av='30')
+			file_name = '/bg_'+date_time_str+'_'+activity+'.pcap'
+			pid = start_emu(PCAP_PATH+file_name, av='30')
 			log.write(PCAP_PATH+'/bg_'+str(i+28)+'_'+activity+'.pcap')
 
 		# Setup remote capture app
