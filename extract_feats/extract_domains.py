@@ -10,7 +10,7 @@ def enter_cmd_args():
     return args
 
 def get_noisy_domains():
-    file_path = './noise_domains.txt'
+    file_path = './res/noise_domains.txt'
     with open(file_path, 'r') as f:
         domain_list = f.readlines()
     domains = [domain.strip() for domain in domain_list]
