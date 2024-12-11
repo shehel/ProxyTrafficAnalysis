@@ -4,5 +4,14 @@ data/feats/**
 # Ignore all files in the data/processed directory
 data/processed/**
 
+# Ignore all log files in data/logs
+data/logs/**
+
 # Ignore all files in the res directory
 data/pcaps/**
+
+# Ignore all folders with extracted features
+extract_feats/processed/**
+
+# Ignore .env file
+.env
