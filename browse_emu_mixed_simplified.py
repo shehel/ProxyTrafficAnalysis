@@ -1010,14 +1010,18 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 		elif profile == 3:
 			activity = "high"
 		stop_emu(pid)
+
 		if mixed_type:
 			print("Starting emulator for mixed domains with proxy app in background......")
-			pid = start_emu(PCAP_PATH+'/mixed_'+date_time_str+'_'+activity+'.pcap', av='30')
+			file_name = PCAP_PATH+'/mixed_'+date_time_str+'_'+activity+'.pcap'
+			pid = start_emu(file_name, av='30')
 			log.write(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap')
 		else:
 			print("Starting emulator for bg only traffic......")
-			pid = start_emu(PCAP_PATH+'/bg_'+date_time_str+'_'+activity+'.pcap', av='30')
+			file_name = PCAP_PATH+'/bg_'+date_time_str+'_'+activity+'.pcap'
+			pid = start_emu(file_name, av='30')
 			log.write(PCAP_PATH+'/bg_'+str(i+28)+'_'+activity+'.pcap')
+
 		# Setup remote capture app
 		setup_remote_capture()
 
@@ -1054,7 +1058,7 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
 			log.write(f"Error happened: {e}\n")
 		finally:
 			# Finalize remote capture before stopping emulator
-			finalize_remote_capture()
+			finalize_remote_capture(file_name)
 			# Then stop emulator
 			os.system("pkill -f emulator")
 			log.close()
@@ -1163,7 +1167,7 @@ def setup_remote_capture():
 	# Wait for a moment to ensure settings are applied
 	time.sleep(2)
 
-def finalize_remote_capture():
+def finalize_remote_capture(file_name):
 	# Bring app to foreground
 	os.system("adb shell monkey -p com.emanuelef.remote_capture -c android.intent.category.LAUNCHER 1")
 	time.sleep(2)
@@ -1175,6 +1179,9 @@ def finalize_remote_capture():
 	time.sleep(1)
 	# Pull file from Downloads
 	os.system("adb pull /sdcard/Download/PCAPdroid ./")
+	# Rename the file to the given file name. Assumes there's only one file in the directory
+	os.system(f"mv PCAPdroid/* PCAPdroid/{file_name}")
+
 	os.system("mv PCAPdroid/* " + PCAP_PATH)
 	# Optionally, delete the files from the device
 	os.system("adb shell rm -rf /sdcard/Download/PCAPdroid")
