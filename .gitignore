@@ -15,3 +15,7 @@ extract_feats/processed/**
 
 # Ignore .env file
 .env
+
+# Ignore IDE files
+.idea
+__pycache__
