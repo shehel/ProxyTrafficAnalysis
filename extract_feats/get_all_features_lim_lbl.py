@@ -10,12 +10,13 @@ from host_features_limited import extract_features_by_conn
 import csv
 import pandas as pd
 import argparse
+import os
 
 def enter_cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--prefix', metavar='the prefix of filename', help='input the prefix of filename (relayed or background)', required=True)
-    parser.add_argument('--number', metavar='number of pcap instance used to extract features', help='input the number of pcap instance used to extract features', required=True)
-    parser.add_argument('--suffix', metavar='the suffix of filename', help='input the suffix of filename (low, high, medium)', required=True)
+    #parser.add_argument('--number', metavar='number of pcap instance used to extract features', help='input the number of pcap instance used to extract features', required=True)
+    #parser.add_argument('--suffix', metavar='the suffix of filename', help='input the suffix of filename (low, high, medium)', required=True)
     parser.add_argument('--limit', metavar='the limit of number of pkts to be considered for feature extraction', help='the min limit of pkts number that will be used for extracting features', required=True)
     args = parser.parse_args()
     return args
@@ -24,8 +25,8 @@ def main():
 
     args = enter_cmd_args()
     prefix = args.prefix
-    number = int(args.number)
-    suffix = args.suffix
+   # number = int(args.number)
+   # suffix = args.suffix
     pkt_limit = int(args.limit)
     
     Features_names=["max_in", "max_out","max_total","avg_in","avg_out","avg_total","std_in","std_out","std_total","75th_percentile_in","75th_percentile_out","75th_percentile_total",
@@ -35,15 +36,19 @@ def main():
                     "sum_alt_per_sec","sum_number_pkts","sum_intertimestats"]
     features_list = []
 
-    
-    for i in range(1,number+1):
-        print("i=",i)
-        if i==5:
-            continue
+    main_directory = '/Users/mounarabhi/Desktop/Script_Proxy/ProxyTrafficAnalysis/processed'
+
+    # Get a list of all folder names in the main directory
+    folder_paths = [os.path.join(main_directory, folder) for folder in os.listdir(main_directory) if os.path.isdir(os.path.join(main_directory, folder))]
+
+    for i in range( len(folder_paths)):
+        folder_name = folder_paths[i]
+        print(f"Processing folder {i+1}/{len(folder_paths)}: {folder_name}")
+
         if prefix== "relayed":
-            file_path = './data/processed/mixed_'+str(i)+'_'+suffix+'/relayed_conn_' + str(i) + '_' + suffix + '_labeled.csv'
+            file_path = folder_name+'/relayed_conn_labeled.csv'
         elif prefix=="background":
-            file_path = './data/processed/mixed_'+str(i)+'_'+suffix+'/background_conn_' + str(i) + "_" + suffix + "_labeled.csv"
+            file_path =folder_name+'/background_conn_labeled.csv'
 
  
         feats = {}
@@ -113,7 +118,7 @@ def main():
     # After processing all files, concatenate the feature list
     if features_list:
         final_features = pd.concat(features_list, axis=0, ignore_index=True)
-        final_features.to_csv('./data/feats/features_lim_' + suffix + '_'+prefix+'.csv', index=False)
+        final_features.to_csv('./data/feats/features_lim_'+prefix+'.csv', index=False)
     else:
         print("No valid features to save.")
         
