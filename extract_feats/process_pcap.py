@@ -31,6 +31,7 @@ commands = [
     f"python extract_feats/extract_domains.py --folder {folder_name}",
     f"python extract_feats/split_connections.py --folder {folder_name}",
     f"sh extract_feats/tshark.sh {pcap_path} {folder_name}",
+    f"python extract_feats/get_labeled_conn.py --folder_path {folder_name}"
 ]
 
 # Execute commands in sequence
