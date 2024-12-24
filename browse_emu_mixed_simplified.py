@@ -1027,7 +1027,7 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
             activity = "high"
         stop_emu(pid)
 
-                
+
         # Start emu again
         start_emu(PCAP_PATH, av='30')
 
@@ -1164,9 +1164,9 @@ def start_magisk():
 
         # Sleep for 60s to allow the installation to take place. Should have closed the emulator
         time.sleep(60)
-        
+
         os.chdir(curdr)
-        
+
 
 def setup_remote_capture():
     # Install the APK
@@ -1199,7 +1199,7 @@ def setup_remote_capture():
     for i in range(2):
             execute_click('128', '519')
             time.sleep(2)
-        
+
     # Going back to home screen
     execute_click('25', '50')
     time.sleep(2)
@@ -1213,7 +1213,7 @@ def setup_remote_capture():
     execute_click('152', '284')
     time.sleep(5)
 
-        
+
     # Clicking on "OK"
     execute_click('222', '441')
     time.sleep(2)
