@@ -616,8 +616,6 @@ def enter_username_password(domain, username="qcri2024@gmail.com", password="Qcr
         enter_text(password)
         execute_enter()
         return
-    elif domain == "youtube.com":
-        execute_enter()
     else:
         execute_tab()
         if domain == "facebook.com":
@@ -636,8 +634,8 @@ def enter_username_password(domain, username="qcri2024@gmail.com", password="Qcr
 
 def login(domain, username="qcri2024@gmail.com", password="Qcriproxytest@42"):
     tb_account = "tb239769136454"
-    special_domains=['youtube.com','taobao.com', 'twitter.com', 'pinterest.com', 'goodreads.com', 'quora.com', 'instagram.com']
-    clickkwd_domains = ['linkedin.com', 'youtube.com']
+    special_domains=['taobao.com', 'twitter.com', 'pinterest.com', 'goodreads.com', 'quora.com', 'instagram.com']
+    clickkwd_domains = ['linkedin.com']
     text_domains = ['twitter.com', 'instagram.com']
     resid_domains = ["taobao.com", "facebook.com", "pinterest.com", 'goodreads.com', 'linkedin.com']
     print("This webpage needs to log-in!!!!")
@@ -659,9 +657,6 @@ def login(domain, username="qcri2024@gmail.com", password="Qcriproxytest@42"):
     if domain in clickkwd_domains:
         if domain == "linkedin.com":
             result = click_single_clkkwd(dumpf, True)
-        if domain == "youtube.com":
-            result = click_single_clkkwd(dumpf, True, "account")
-            print("Click account result:", result)
         time.sleep(2)
         dumpf = get_uidump()
         dump = xx.parse(dumpf)
@@ -794,6 +789,9 @@ def interact(domain, profile=1, searching=False):
             return
         else:
             time.sleep(5)
+
+    if domain == "youtube.com":
+        execute_click('140', '607')
     if domain == "vrbo.com":
         execute_page_down()
         execute_click('600','1200')
@@ -1235,12 +1233,15 @@ def finalize_remote_capture(file_name):
     time.sleep(1)
     # Pull file from Downloads
     os.system("adb pull /sdcard/Download/PCAPdroid ./")
+    time.sleep(2)
     # Rename the file to the given file name. Assumes there's only one file in the directory
     os.system(f"mv PCAPdroid/* PCAPdroid/{file_name}")
+    time.sleep(2)
 
     os.system("mv PCAPdroid/* " + PCAP_PATH)
+    time.sleep(2)
+    
     # Optionally, delete the files from the device
-    os.system("adb shell rm -rf /sdcard/Download/PCAPdroid")
     print("Remote capture finalized and files moved.")
 
 if __name__ == "__main__":
