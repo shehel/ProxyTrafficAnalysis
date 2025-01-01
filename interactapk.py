@@ -17,7 +17,7 @@ global gmailusername
 clickkwds = ["sure!","link device to my account","accept", "start", "i accept", "enter","i agree", "ok", "ok, i agree", "skip","allow","connect", "continue", "add", "next", "agree", "got it", "yes", "start using the app", "off", "i got it", "always", "agree & continue", "no thanks", "retry", "while using the app", "only this time", "change to pin code", "yes i am 18+", "add new proxy", "accept & continue", "log in with google", "never"] 
 earnappkwds = ["earnapp.com", "sign in with google"]
 signingoogle = False
-gmailusername = "qcri2023@gmail.com" # Google account details for SIGN UP/LOG IN - Disable 2 Factor Authentication before sign in, if applicable
+gmailusername = "qcri2024@gmail.com" # Google account details for SIGN UP/LOG IN - Disable 2 Factor Authentication before sign in, if applicable
 passgmail = "Qcriproxytest@42"
 
 def get_uidump():
