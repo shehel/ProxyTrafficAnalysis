@@ -10,6 +10,11 @@ This repository contains scripts for the following steps:
 
 ## PCAP Processing 
 
+### Quick Start
+1. `extract_feats/process_pcaps.py` to process all PCAPs in a specified directory.
+2. `extract_feats/get_all_features_lim_lbl.py` to extract features from the processed PCAPs.
+3. [Optional] `extract_feats/get_correlation_feature_multithread.py` to extract correlation features from the processed PCAPs.
+4. [Optional]`extract_feats/merge_all_feats.py` to merge the correalation features with the rest of the features in 2.
 ### Generate Logs
 Retrieve App names from PCAPs using tshark:
 ```bash
@@ -42,6 +47,7 @@ Extract features from split proxy connections and normal connections:
 
 ```bash
 python3 extract_feats/get_all_features_lim_lbl.py --prefix p --number n --suffix profile --limit x
+```
 p: the prefix either background or relayed
 profile: low/medium/high
 n: the total number of files used
@@ -60,7 +66,6 @@ Use the processed features to train AutoGluon models.
 
 The pipeline expects the following directory structure:
 ```
-.
 ├── analysis/                             # Analysis scripts
 ├── data/pcaps/                           # Raw PCAP files
 │   ├── <traffic_type>_N_<profile>.pcap
@@ -78,4 +83,3 @@ The pipeline expects the following directory structure:
 ├── res/                                  # Static resource files 
 
 ```
-
