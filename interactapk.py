@@ -14,10 +14,10 @@ global earnappkwds
 global signingoogle
 global passgmail
 global gmailusername
-clickkwds = ["sure!","link device to my account","accept", "start", "i accept", "enter","i agree", "ok", "ok, i agree", "skip","allow","connect", "continue", "add", "next", "agree", "got it", "yes", "start using the app", "off", "i got it", "always", "agree & continue", "no thanks", "retry", "while using the app", "only this time", "change to pin code", "yes i am 18+", "add new proxy", "accept & continue", "log in with google", "never"] 
-earnappkwds = ["earnapp.com", "sign in with google"]
+clickkwds = ["sure!","link device to my account","accept", "start", "i accept", "enter","i agree", "ok", "ok, i agree", "skip","allow","connect", "continue", "add", "next", "agree", "got it", "yes", "start using the app", "off", "i got it", "always", "agree & continue", "no thanks", "retry", "while using the app", "only this time", "change to pin code", "yes i am 18+", "add new proxy", "accept & continue", "log in with google", "never", "visit this unsafe site", "details"]
+earnappkwds = ["log in with google"]
 signingoogle = False
-gmailusername = "qcri2023@gmail.com" # Google account details for SIGN UP/LOG IN - Disable 2 Factor Authentication before sign in, if applicable
+gmailusername = "qcri2024@gmail.com" # Google account details for SIGN UP/LOG IN - Disable 2 Factor Authentication before sign in, if applicable
 passgmail = "Qcriproxytest@42"
 
 def get_uidump():
@@ -127,16 +127,16 @@ def is_in_kwds(k):
     word = k.lower()
     for keywd in clickkwds:
         #print(word, "in", keywd, "?")
-        if word == keywd or word in keywd:
+        if (word == keywd or word in keywd) and word != "Hide Details":
             return True
     return False
 
 # Based on keywords on the page, detect if sign in required
 def earnappsignin(k):
     global signingoogle
-    if signingoogle == True:
+    if signingoogle:
         return
-    if signingoogle == False:
+    if not signingoogle:
         word = k.lower()
         if word in earnappkwds:
            signingoogle = word
@@ -243,9 +243,12 @@ def main_intc(clicklimit=20):
     global gmailusername
 
     earnlogged = False
+    seen_warning = False
+    clicked_details = False
 
     # Default clicks = 10
     for i in range(0, 20):
+        print("=" * 36)
         time.sleep(2)
         dumpf = get_uidump()
         if dumpf == False:
@@ -258,19 +261,47 @@ def main_intc(clicklimit=20):
         clickables, checkables = sort_actions(actiondt)
         clickelems = choose_action(clickables, checkables)
         clickedok = False
+
         if len(clickelems) > 0:
             for tple in clickelems:
                 print("Performing click on: ", tple[0], tple[1])
                 clickwords = tple[1].lower()
+                print(clickwords)
 
                 if "com.boostdev.volumebooster:id/sb_boost" in clickwords:
                     perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3],"oxylabsbooster")
                     return
 
-                if signingoogle and not earnlogged:
+                if not clicked_details and "details" in clickwords:
+                    print("="*36)
+                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
+                    time.sleep(1)
+                    clicked_details = True
+                    continue
+
+                if clicked_details and "visit this unsafe site" in clickwords:
+                    print("+"*36)
+                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
+                    time.sleep(2)
+                    seen_warning = True
+
+                    # import pdb
+                    # pdb.set_trace()
+                    continue
+
+                if seen_warning and "log in" in clickwords:
+                    print("x" * 36)
+                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
+                    time.sleep(2)
+                    seen_warning = True
+
+                    continue
+
+                if seen_warning and signingoogle and not earnlogged:
                     print("Sign into Google is TurnedON")
                     print("Entering GMAIL USERNAME")
                     earnlogged = login(gmailusername,False)
+                    time.sleep(2)
                     print("Action status: ",earnlogged)
                     continue
 
@@ -285,8 +316,9 @@ def main_intc(clicklimit=20):
                          earnlogged = False
                          return
 
-                perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
-                time.sleep(2)
+                if not clicked_details:
+                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
+                    time.sleep(2)
         else:
             if iterbomb == clicklimit:
                 print("Stopping UI interaction for APK......")
