@@ -1,19 +1,24 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <pcap_file>"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <pcap_file> <output_dir>"
     exit 1
 fi
 
 pcap_file="$1"
+output_dir="$2"
 
 if [ ! -f "$pcap_file" ]; then
     echo "Error: File '$pcap_file' not found"
     exit 1
 fi
+
+# Ensure output directory exists
+mkdir -p "$output_dir"
+
 # Extract traffic type and profile from input file path
 traffic_type_profile=$(basename "$pcap_file" .pcap)
-mkdir -p "data/processed/${traffic_type_profile}"
+output_file="$output_dir/tshark_output.csv"
 
 tshark -X lua_script:./res/pcapdroid.lua -r "$pcap_file" -T fields \
 -e _ws.col.Time \
@@ -29,17 +34,17 @@ tshark -X lua_script:./res/pcapdroid.lua -r "$pcap_file" -T fields \
 -E separator=, \
 -E quote=n \
 -E occurrence=f | \
-awk -F',' 'NR==1 {print "Time,App name,Destination,Protocol,Length,scr_ip,src_port,dest_ip,dest_port"} 
+awk -F',' 'NR==1 {print "Time,App name,Destination,Protocol,Length,src_ip,src_port,dst_ip,dst_port"}
 NR>1 {
-    if ($7 != "") port=$7; 
-    else if ($8 != "") port=$8; 
+    if ($7 != "") port=$7;
+    else if ($8 != "") port=$8;
     else port="";
-    
-    if ($10 != "") dport=$10; 
-    else if ($11 != "") dport=$11; 
-    else dport="";
-    
-    print $1","$2","$3","$4","$5","$6","port","$9","dport
-}' > "data/processed/${traffic_type_profile}/tshark_output.csv"
 
-echo "Output saved to data/processed/${traffic_type_profile}/tshark_output.csv"
+    if ($10 != "") dport=$10;
+    else if ($11 != "") dport=$11;
+    else dport="";
+
+    print $1","$2","$3","$4","$5","$6","port","$9","dport
+}' > "$output_file"
+
+echo "Output saved to $output_file"

@@ -18,7 +18,7 @@ if not os.path.exists(pcap_path):
 
 # Get current date and time for folder name
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-folder_name = f"processed/folder_{current_datetime}"
+folder_name = f"data/processed/folder_{current_datetime}"
 
 # Ensure the folder exists
 os.makedirs(folder_name, exist_ok=True)
@@ -27,9 +27,11 @@ os.makedirs(folder_name, exist_ok=True)
 commands = [
     f"cp {pcap_path} {folder_name}/mixed.pcap",
     f"zeek -C -r {folder_name}/mixed.pcap LogAscii::use_json=T",
-    f"python rename_logs.py --folder {folder_name}",
-    f"python extract_domains.py --folder {folder_name}",
-    f"python split_connections.py --folder {folder_name}",
+    f"python extract_feats/rename_logs.py --folder {folder_name}",
+    f"python extract_feats/extract_domains.py --folder {folder_name}",
+    f"python extract_feats/split_connections.py --folder {folder_name}",
+    f"sh extract_feats/tshark.sh {pcap_path} {folder_name}",
+    f"python extract_feats/get_labeled_conn.py --folder_path {folder_name}"
 ]
 
 # Execute commands in sequence

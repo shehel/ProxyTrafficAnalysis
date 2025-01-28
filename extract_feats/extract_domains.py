@@ -2,6 +2,25 @@ import pandas as pd
 import json
 import argparse
 import os
+import re
+
+BLOCK_PATTERN = re.compile(
+    r"(?:"
+    r"luminati|luminatinet|luminati-china|"  # covers 'luminati', 'luminatinet', 'luminati-china'
+    r"brdtnet|brdtest|"                     # covers 'brdtnet', 'brdtest'
+    r"lumtest|lum-sdk|lum-ext|lum-bext|lum-cn|"  # covers 'lumtest', 'lum-sdk', 'lum-ext', 'lum-bext', 'lum-cn'
+    r"bright-sdk|earnapp|bndlapp|eatapp|"   # covers 'bright-sdk', 'earnapp', 'bndlapp', 'eatapp'
+    r"perr|l-err|zproxy|"                   # covers 'perr', 'l-err', 'zproxy'
+    r"gear-ninja|begatc|marj3y|cpybs|vrspy|sebokep|l-agent"
+    r")",
+    re.IGNORECASE
+)
+
+def is_proxy(server_name: str) -> bool:
+    """
+    Return True if the server_name matches our blocking pattern, False otherwise.
+    """
+    return bool(BLOCK_PATTERN.search(server_name))
 
 def enter_cmd_args():
     parser = argparse.ArgumentParser(description="Process logs in a given folder.")
@@ -10,7 +29,7 @@ def enter_cmd_args():
     return args
 
 def get_noisy_domains():
-    file_path = './noise_domains.txt'
+    file_path = './res/noise_domains.txt'
     with open(file_path, 'r') as f:
         domain_list = f.readlines()
     domains = [domain.strip() for domain in domain_list]
@@ -56,7 +75,7 @@ def main():
         prt_recv = df_dict[i]['id.resp_p']
         conn_tp = f"({ip_src}, {prt_src}, {ip_recv}, {prt_recv})"
 
-        if 'brdtnet.com' in server_name or ('luminatinet.com' in server_name and 'proxyjs' not in server_name):
+        if is_proxy(server_name):
             conn_dict[conn_tp] = [f'proxy_conn_{proxy_num}', server_name]
             proxy_num += 1
         else:
