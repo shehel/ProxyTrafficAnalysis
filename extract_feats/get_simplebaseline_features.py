@@ -66,6 +66,7 @@ class NetworkFeatureExtractor:
             # delete 4th packet if its larger than 1300
             if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
                 conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
+                conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
             #pdb.set_trace()
 
             # Filter by direction
