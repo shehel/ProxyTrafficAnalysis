@@ -77,9 +77,13 @@ class NetworkFeatureExtractor:
             # Sort and split packets
             
             conn_data = conn_data.sort_values('ts_relative')
+            if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
+                conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
+                conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
+
             # skip the first 4 elements
             #conn_data = conn_data.iloc[8:]
-            conn_data.loc[conn_data.index[:3], 'ts_relative'] = conn_data.loc[conn_data.index[0], 'ts_relative']   
+            #conn_data.loc[conn_data.index[:3], 'ts_relative'] = conn_data.loc[conn_data.index[0], 'ts_relative']   
             src_ip = conn_data.iloc[0]['src_ip']
             upload_mask = conn_data['src_ip'] == src_ip
             upload_packets = conn_data[upload_mask].head(self.MAX_PACKETS)
@@ -273,10 +277,10 @@ class NetworkFeatureExtractor:
             
             for conn_id, conn_data in df.groupby('conn'):
                 #if 'relayed' in file_path:
-                relayed_random_padding = pd.Series(
-                    np.random.normal(loc=250, scale=125, size=len(conn_data)).clip(0, 350).round().astype(int),
-                    index=conn_data.index
-                    )
+                #relayed_random_padding = pd.Series(
+                #    np.random.normal(loc=250, scale=125, size=len(conn_data)).clip(0, 350).round().astype(int),
+                #    index=conn_data.index
+                #    )
                 # if 'background' in file_path:
                 #     bg_random_padding = pd.Series(
                 #     np.random.normal(loc=0.050, scale=0.01, size=len(conn_data)).clip(0, 0.1),
@@ -285,7 +289,7 @@ class NetworkFeatureExtractor:
                 #     conn_data['ts_relative'] = bg_random_padding + conn_data['ts_relative']
 
 
-                conn_data['pkt_len'] = relayed_random_padding #+ conn_data['pkt_len']
+                #conn_data['pkt_len'] = relayed_random_padding #+ conn_data['pkt_len']
                 extracted_features = self.extract_features(conn_data)
                 if extracted_features is not None:
                     features[f"{file_path}_{file_type}_{conn_id}"] = {
