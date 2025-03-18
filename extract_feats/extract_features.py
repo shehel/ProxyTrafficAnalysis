@@ -79,13 +79,14 @@ def inter_pkt_time(list_data):
     if not list_data:
         return []
 
-    times = [x[0] for x in list_data if x]  # Safeguard against empty items
-    print("times=", times)
+    times = [x[0] for x in list_data if x]  # Extract timestamps safely
 
     if len(times) < 2:
         print(f"Insufficient data for inter-packet times: {times}")
         return []
-    return [next_elem - elem for elem, next_elem in zip(times, times[1:] + [times[0]])]
+
+    return [next_elem - elem for elem, next_elem in zip(times, times[1:])]  # No circular wrap-around
+
 
 
 
@@ -429,9 +430,6 @@ def count_fts(lst_fts):
     fnames = ["intertimestats","timestats","number_pkts","thirtypkts","stdconc","avgconc","avg_per_sec","std_per_sec","avg_order_in","avg_order_out","std_order_in",
              "std_order_out","medconc","med_per_sec","min_per_sec","max_per_sec","maxconc","perc_in","perc_out","altconc","alt_per_sec","sum_altconc","sum_alt_per_sec","sum_intertimestats",
              "sum_timestats","sum_number_pkts"]
-    print("Total categories: ", len(fnames))
-    print(lst_fts)
-    print(len(lst_fts), len(fnames))
     ind = 0
     fts = []
     for x in range(0, len(lst_fts)):
@@ -454,12 +452,13 @@ def count_fts(lst_fts):
     return
 
 #If size information available add them in to function below
-def TOTAL_FEATURES(trace_data, max_size=38):
+def TOTAL_FEATURES(trace_data, max_size=150):
 
     list_data = get_pkt_list(trace_data)
     ALL_FEATURES = []
 
     intertimestats = [x for x in interarrival_maxminmeansd_stats(list_data)[0]]
+    timestats = time_percentile_stats(list_data)
     number_pkts = list(number_pkt_stats(list_data))
     thirtypkts = first_and_last_30_pkts_stats(list_data)
     stdconc, avgconc, medconc, minconc, maxconc, conc = pkt_concentration_stats(list_data)
@@ -476,18 +475,14 @@ def TOTAL_FEATURES(trace_data, max_size=38):
     if len(altconc) > 20:
         altconc = altconc[:20]
     while len(alt_per_sec) < 20:
-        alt_per_sec.append(0)  #Cannot find source of this operation
+        alt_per_sec.append(0)  
     if len(alt_per_sec) > 20:
         alt_per_sec = alt_per_sec[:20]
 
     ALL_FEATURES.extend(intertimestats)
-    print("intertimestats",intertimestats)
-    print(len(intertimestats))
+    ALL_FEATURES.extend(timestats)
     ALL_FEATURES.extend(number_pkts)
-    print("number_pkts",number_pkts)
-    print(len(number_pkts))
     ALL_FEATURES.extend(thirtypkts)
-    print("thirtypkts",thirtypkts)
     ALL_FEATURES.append(stdconc)
     ALL_FEATURES.append(avgconc)
     ALL_FEATURES.append(avg_per_sec)
@@ -507,12 +502,17 @@ def TOTAL_FEATURES(trace_data, max_size=38):
     ALL_FEATURES.append(sum(alt_per_sec))
     ALL_FEATURES.append(sum(number_pkts))
     ALL_FEATURES.append(sum(intertimestats))
+    ALL_FEATURES.append(sum(timestats))
+    ALL_FEATURES.extend(altconc) #20 fixed length
+    ALL_FEATURES.extend(alt_per_sec) #20 fixed length
+    ALL_FEATURES.extend(conc) # 60 fixed length
 
 
-    print("Extracted features: ", len(ALL_FEATURES))
+    #print("Extracted features: ", len(ALL_FEATURES))
     while len(ALL_FEATURES)<max_size:
         ALL_FEATURES.append(0)
     features = ALL_FEATURES[:max_size]
+    #print("Length of features after truncation:", len(features))
     return features
 
 def get_features(pkts, conn_name, limit):
@@ -530,5 +530,4 @@ def chunks(l, n):
 
 def checkequal(lst):
     return lst[1:] == lst[:-1]
-
 
