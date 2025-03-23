@@ -16,7 +16,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 import warnings
+import numpy as np
+import json
+
 warnings.filterwarnings("ignore")
+
+# Define magic numbers for bg 4th pkt len distribution
+BG_DST_MEAN = -8.30798020107403
+BG_DST_STD = 0.9981827236487635
 
 class FeatureExtractor:
     def __init__(self):
@@ -37,6 +44,27 @@ class FeatureExtractor:
         self.Features_names.extend([f"alt_per_sec_{i+1}" for i in range(20)])
         self.Features_names.extend([f"conc_{i+1}" for i in range(60)])
 
+        # Add new instance variables
+        self.use_empirical_sampling = True
+        self.empirical_packet_lengths = None
+        self.background_length_distribution = {
+            'mean': BG_DST_MEAN,
+            'std': BG_DST_STD
+        }
+        
+        # Load empirical samples
+        self.load_empirical_samples()
+    
+    def load_empirical_samples(self, json_path='packet_lengths.json'):
+        """Load empirical packet length samples from JSON file"""
+        try:
+            with open(json_path, 'r') as f:
+                json_data = json.load(f)
+                self.empirical_packet_lengths = json_data['empirical_samples']
+        except (FileNotFoundError, KeyError, json.JSONDecodeError) as e:
+            print(f"Warning: Could not load empirical samples: {e}")
+            self.use_empirical_sampling = False
+
     def process_single_file(self, file_path: str, file_type: str, pkt_limit: int) -> Dict:
         """Process a single CSV file and extract features"""
         try:
@@ -47,22 +75,70 @@ class FeatureExtractor:
                 conn_pkts = []
 
                 for idx, pkt in enumerate(all_pkts):
+                    # If the first row is a header, skip it
                     if idx == 0:
                         continue
 
                     conn_name = pkt[0]
+
+                    # If we detect a new connection, process the old one first
                     if conn_name != curr_conn:
+                        # If we had a previous connection with enough packets
                         if conn_pkts and len(conn_pkts) >= pkt_limit:
+                            # Apply the same drop & randomization logic:
+                            # 1) If 4th packet is > 1300, drop 4th and 6th
+                            if len(conn_pkts) > 3 and int(conn_pkts[3][7]) > 1300:
+                                # Remove the packet at index 3
+                                conn_pkts.pop(3)
+                                # Now check if index 4 still exists
+                                if len(conn_pkts) > 4:
+                                    conn_pkts.pop(4)
+
+                            # 2) Sample new length for the (new) 4th packet
+                            if len(conn_pkts) > 3:
+                                if self.use_empirical_sampling and self.empirical_packet_lengths is not None:
+                                    new_length = np.random.choice(self.empirical_packet_lengths)
+                                else:
+                                    # Fall back to normal distribution sampling
+                                    new_length = np.random.normal(
+                                        loc=self.background_length_distribution['mean'],
+                                        scale=self.background_length_distribution['std']
+                                    )
+                                    new_length = max(1, int(round(new_length)))
+                                conn_pkts[3][7] = str(new_length)
+
+                            # Now compute features
                             conn_features = get_features(conn_pkts[:pkt_limit], curr_conn, limit=0)
                             if conn_features:
                                 features[curr_conn] = conn_features
+
+                        # Start a new conn_pkts list for the new connection
                         conn_pkts = [pkt]
                         curr_conn = conn_name
                     else:
+                        # Same connection, just append
                         conn_pkts.append(pkt)
 
                 # Process final connection
                 if conn_pkts and len(conn_pkts) >= pkt_limit:
+                    # Same drop & randomization logic as above
+                    if len(conn_pkts) > 3 and int(conn_pkts[3][7]) > 1300:
+                        conn_pkts.pop(3)
+                        if len(conn_pkts) > 4:
+                            conn_pkts.pop(4)
+                    if len(conn_pkts) > 3:
+                        if self.use_empirical_sampling and self.empirical_packet_lengths is not None:
+                            new_length = np.random.choice(self.empirical_packet_lengths)
+                        else:
+                            # Fall back to normal distribution sampling
+                            new_length = np.random.normal(
+                                loc=self.background_length_distribution['mean'],
+                                scale=self.background_length_distribution['std']
+                            )
+                            new_length = max(1, int(round(new_length)))
+                        conn_pkts[3][3] = str(new_length)
+
+                    # Get features and save them
                     conn_features = get_features(conn_pkts[:pkt_limit], curr_conn, limit=0)
                     if conn_features:
                         features[curr_conn] = conn_features
@@ -134,86 +210,48 @@ class FeatureExtractor:
 def main():
     import sys
     
-    # Get input directory from command line or use default
+    # Get input file path from command line
     if len(sys.argv) > 1:
         input_path = Path(sys.argv[1])
-        if not str(input_path).startswith('data/processed/'):
-            print("\nError: Input path must start with 'data/processed/'")
+        if not input_path.exists():
+            print(f"\nError: Input file not found: {input_path}")
+            sys.exit(1)
+        if not input_path.suffix == '.csv':
+            print("\nError: Input file must be a CSV file")
             sys.exit(1)
     else:
-        print("\nError: Please provide input path (e.g., data/processed/dir1/train)")
+        print("\nError: Please provide input CSV file path")
         sys.exit(1)
 
-    # Setup paths
-    relative_path = Path(str(input_path).replace('data/processed/', ''))
-    input_dir = Path('data/processed') / relative_path
-    output_dir = Path('data/feats_ours') / relative_path
+    # Determine file type from filename
+    file_type = 'relayed' if 'relayed' in input_path.name else 'background'
+    
+    # Setup output path in same directory as input
+    output_folder_path = Path("content/subset_features_03_18/val")
+    output_path = output_folder_path / f"{input_path.parent.name}_{file_type}.csv"
 
-    # Verify input directory exists
-    if not input_dir.exists():
-        print(f"\nError: Input directory not found: {input_dir}")
-        sys.exit(1)
-
-    # Create output directory
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Initialize feature extractor and process files
+    # Initialize feature extractor and process file
     extractor = FeatureExtractor()
-    print(f"\nProcessing files from: {input_dir}")
-    print(f"Saving results to: {output_dir}")
-    features_df, metadata_df = extractor.process_csv_files(str(input_dir))
-
-    # Print summary statistics
-    total_connections = len(features_df)
-    if total_connections == 0:
-        print("\nNo connections found in the input directory!")
+    print(f"\nProcessing file: {input_path}")
+    print(f"Saving results to: {output_path}")
+    
+    # Process single file
+    features = extractor.process_single_file(str(input_path), file_type, pkt_limit=20)
+    
+    if features is None or len(features) == 0:
+        print("\nNo features could be extracted from the input file!")
         sys.exit(1)
 
-    background_count = sum(features_df['label'] == 0)
-    relayed_count = sum(features_df['label'] == 1)
-
-    print("\nNetwork Traffic Analysis Summary")
-    print("================================")
-    print(f"Input Directory: {input_dir}")
-    print(f"Output Directory: {output_dir}")
-    print(f"\nTotal Connections Analyzed: {total_connections:,}")
-    print(f"Background Connections: {background_count:,} ({background_count/total_connections*100:.1f}%)")
-    print(f"Relayed Connections: {relayed_count:,} ({relayed_count/total_connections*100:.1f}%)")
-
-    print("\nData Sources:", len(metadata_df['data_source'].unique()))
-    print("Unique Providers:", len(metadata_df['provider'].unique()))
-
-    print("\nTop 5 Providers by Connection Count:")
-    print(metadata_df['provider'].value_counts().head().to_string())
-
-    print("\nConnections by Data Source:")
-    print(metadata_df['data_source'].value_counts().to_string())
-
-    print("\nFeature DataFrame Shape:", features_df.shape)
-    print("Metadata DataFrame Shape:", metadata_df.shape)
+    # Create features DataFrame
+    features_df = features[extractor.Features_names].copy()
+    features_df['label'] = (features['type'] == 'relayed').astype(int)
 
     # Save results
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    features_file = output_dir / "features.csv"
-    metadata_file = output_dir / "metadata.csv"
+    features_df.to_csv(output_path, index=False)
 
-    features_df.to_csv(features_file, index=False)
-    metadata_df.to_csv(metadata_file, index=False)
-
-    print("\nResults saved to:")
-    print(f"- {features_file}")
-    print(f"- {metadata_file}")
-
-    # Save feature names reference
-    feature_ref_file = output_dir / "feature_reference.txt"
-    with open(feature_ref_file, 'w') as f:
-        f.write("Feature Names Description\n")
-        f.write("=======================\n\n")
-        for i, feature in enumerate(extractor.Features_names):
-            f.write(f"{i+1}. {feature}\n")
-        f.write(f"\n{len(extractor.Features_names)+1}. label (0=background, 1=relayed)")
-
-    print(f"- {feature_ref_file}")
+    print("\nFeature extraction complete")
+    print(f"Features shape: {features_df.shape}")
+    print(f"Results saved to: {output_path}")
 
 if __name__ == "__main__":
     main()

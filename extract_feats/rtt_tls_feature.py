@@ -55,7 +55,7 @@ def get_rtt_feature(folder_name, prefix):
     server_hello_packets = []
 
     # Process PCAP file
-    base_pcap = "/Users/mounarabhi/Desktop/ProxyTrafficAnalysis/data/pcaps_new/"
+    base_pcap = "../ProxyData/local_pcaps"
     last_part = os.path.basename(folder_name)
     pcap_file = os.path.join(base_pcap, f"{last_part}.pcap")
 
@@ -146,33 +146,3 @@ def get_rtt_feature(folder_name, prefix):
 
     return df_rtt
 
-"""
-# Example usage
-folder_name='/Users/mounarabhi/Desktop/ProxyTrafficAnalysis/data/processed_new/mixed_02_01_2025_10_04_36_low'
-#folder_name = "/Users/mounarabhi/Desktop/ProxyTrafficAnalysis/data/processed_new/mixed_31_12_2024_08_20_54_high"
-rtt_relayed = get_rtt_feature(folder_name, prefix="relayed")
-rtt_background = get_rtt_feature(folder_name, prefix="background")
-
-def plot_cdf(data, label, color):
-    sorted_data = np.sort(data)
-    cdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
-    plt.plot(sorted_data, cdf, label=label, color=color)
-
-# Extract RTT values from the DataFrames
-rtt_relayed_values = rtt_relayed['rtt'].to_numpy()
-rtt_background_values = rtt_background['rtt'].to_numpy()
-
-# Plot the CDFs
-plt.figure(figsize=(8, 6))
-plot_cdf(rtt_relayed_values, label="RTT Relayed", color="orange")
-plot_cdf(rtt_background_values, label="RTT Background", color="blue")
-
-# Add labels, title, and legend
-plt.xlabel("RTT (seconds)")
-plt.ylabel("CDF")
-plt.title("CDF of RTT: Relayed vs Background")
-plt.legend()
-plt.grid(True)
-plt.xlim([0,1])
-plt.show()
-"""

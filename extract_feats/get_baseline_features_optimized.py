@@ -1,11 +1,14 @@
+import argparse
 import os
 import pandas as pd
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from pathlib import Path
 import pdb
+from datetime import datetime
+
 @dataclass
 class PacketFeatures:
     """Data class to store packet features"""
@@ -27,7 +30,7 @@ class ConnectionFeatures:
 
 class NetworkFeatureExtractor:
     """Class to handle network feature extraction"""
-    PACKET_CHECKPOINTS = [2, 4,8,16,32,64]
+    PACKET_CHECKPOINTS = [2, 4, 8, 16, 32, 64]
     REQUIRED_LENGTH = 6
     MAX_PACKETS = 64
 
@@ -72,18 +75,14 @@ class NetworkFeatureExtractor:
 
     def extract_features(self, conn_data: pd.DataFrame) -> Optional[List[float]]:
         """Extract features from connection data"""
-        # set first 6 rows to be the same value 250 for ['pkt_len'] column
         try:
-            # Sort and split packets
-            
+            # Sort and remove outliers at row 3 and 4 if bigger than 1300
             conn_data = conn_data.sort_values('ts_relative')
             if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
                 conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
                 conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
 
-            # skip the first 4 elements
-            #conn_data = conn_data.iloc[8:]
-            #conn_data.loc[conn_data.index[:3], 'ts_relative'] = conn_data.loc[conn_data.index[0], 'ts_relative']   
+            # Identify upload vs. download
             src_ip = conn_data.iloc[0]['src_ip']
             upload_mask = conn_data['src_ip'] == src_ip
             upload_packets = conn_data[upload_mask].head(self.MAX_PACKETS)
@@ -96,8 +95,6 @@ class NetworkFeatureExtractor:
                 'inter': self._calculate_packet_metrics(conn_data.head(self.MAX_PACKETS))
             }
             
-            # if conn_data['conn'].iloc[0]=='normal_conn_13012':
-            #     pdb.set_trace()
             # Calculate features
             features = ConnectionFeatures(
                 upstream_ratio=self._calculate_upstream_ratio(metrics),
@@ -239,23 +236,41 @@ class NetworkFeatureExtractor:
             return lst + [default_value] * (self.REQUIRED_LENGTH - len(lst))
         return lst
 
-    def process_csv_files(self, root_dir: str, max_workers: int = 1) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Process all CSV files in directory"""
-        csv_files = self._find_csv_files(root_dir)
-        all_features = {}
+    def _concatenate_features(self, features: ConnectionFeatures) -> List[float]:
+        """Flatten ConnectionFeatures into a single list of features."""
+        concatenated = []
         
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_file = {
-                executor.submit(self._process_single_file, file_info): file_info 
-                for file_info in csv_files
-            }
-            
-            for future in future_to_file:
-                file_features = future.result()
-                if file_features:
-                    all_features.update(file_features)
+        # Add upstream ratio features
+        concatenated.extend(features.upstream_ratio)
         
-        return self._create_dataframes(all_features)
+        # Add timing features for upload, download, and inter-packet
+        for packet_features in features.upload_packet:
+            concatenated.extend([packet_features.mean, packet_features.max, 
+                                 packet_features.min, packet_features.std])
+        
+        for packet_features in features.download_packet:
+            concatenated.extend([packet_features.mean, packet_features.max, 
+                                 packet_features.min, packet_features.std])
+        
+        for packet_features in features.inter_packet:
+            concatenated.extend([packet_features.mean, packet_features.max, 
+                                 packet_features.min, packet_features.std])
+        
+        # Add throughput features
+        for direction in ['upload', 'download', 'inter']:
+            concatenated.extend(features.bytes_per_second[direction])
+        
+        # Add packet rate features
+        for direction in ['upload', 'download', 'inter']:
+            concatenated.extend(features.packets_per_second[direction])
+        
+        # Add size features
+        for direction in ['upload', 'download', 'inter']:
+            for packet_features in features.size_features[direction]:
+                concatenated.extend([packet_features.mean, packet_features.max,
+                                     packet_features.min, packet_features.std])
+        
+        return concatenated
 
     def _find_csv_files(self, root_dir: str) -> List[Tuple[str, str]]:
         """Find all relevant CSV files"""
@@ -270,40 +285,38 @@ class NetworkFeatureExtractor:
         return csv_files
 
     def _process_single_file(self, file_info: Tuple[str, str]) -> Dict:
-        """Process a single CSV file"""
+        """Process a single CSV file into a dictionary of extracted features."""
         file_path, file_type = file_info
-        print (file_path)
+        print(file_path)
         try:
             df = pd.read_csv(file_path)
-            features = {}
+            features_dict = {}
             
             for conn_id, conn_data in df.groupby('conn'):
                 extracted_features = self.extract_features(conn_data)
                 if extracted_features is not None:
-                    features[f"{file_path}_{file_type}_{conn_id}"] = {
+                    features_dict[f"{file_path}_{file_type}_{conn_id}"] = {
                         'features': extracted_features,
                         'type': file_type,
                     }
             
-            return features
+            return features_dict
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
             return {}
 
     def _create_dataframes(self, features: Dict) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Create features and metadata DataFrames with enhanced metadata and labels
-        
-        Returns:
-            Tuple containing:
-            - features_df: DataFrame with features and binary label (0=background, 1=relayed)
-            - metadata_df: DataFrame with connection metadata
+        """
+        Convert the per-connection 'features' dictionary into two DataFrames:
+          1) features_df (actual numerical features + 'label'),
+          2) metadata_df (connection metadata).
         """
         data = []
         labels = []
         metadata = []
         
         for key, value in features.items():
-            # Extract file path and connection info from key
+            # e.g. key => file_path_fileType_connID
             file_path, conn_type, conn_id = key.rsplit('_', 2)
             
             # Add features and binary label
@@ -319,134 +332,199 @@ class NetworkFeatureExtractor:
                 'is_relayed': value['type'] == 'relayed'
             })
         
-        # Create features DataFrame with label column
+        # Create features DataFrame with label
         features_df = pd.DataFrame(data, columns=self.feature_names)
         features_df['label'] = labels
         
         # Create metadata DataFrame
         metadata_df = pd.DataFrame(metadata)
-        
-        # Add derived metadata columns
         metadata_df['data_source'] = metadata_df['file_path'].apply(lambda x: Path(x).parent.name)
         metadata_df['analysis_date'] = pd.Timestamp.now().date()
         
         return features_df, metadata_df
 
-    def _concatenate_features(self, features: ConnectionFeatures) -> List[float]:
-        """Flatten ConnectionFeatures into a single list of features.
-        
-        Args:
-            features: ConnectionFeatures object containing all extracted features
-            
-        Returns:
-            List of float values representing all features concatenated in order
+    def process_csv_files_in_chunks(self, root_dir: str, output_dir: Path, max_workers: int = 1) -> None:
         """
-        concatenated = []
+        Process CSV files in the given root directory using a thread pool, but
+        write out features every 10 files so that we do not accumulate everything
+        in memory. Also keep partial counts for summary.
+        """
+        csv_files = self._find_csv_files(root_dir)
         
-        # Add upstream ratio features
-        concatenated.extend(features.upstream_ratio)
+        # Prepare output CSVs for writing
+        features_file = output_dir / "features.parquet"
+        metadata_file = output_dir / "metadata.parquet"
         
-        # Add timing features for upload, download, and inter-packet
-        for packet_features in features.upload_packet:
-            concatenated.extend([packet_features.mean, packet_features.max, 
-                               packet_features.min, packet_features.std])
+        # If they already exist, remove them for a fresh run (optional)
+        if features_file.exists():
+            features_file.unlink()
+        if metadata_file.exists():
+            metadata_file.unlink()
         
-        for packet_features in features.download_packet:
-            concatenated.extend([packet_features.mean, packet_features.max, 
-                               packet_features.min, packet_features.std])
+        # We'll keep running totals for summary
+        total_connections = 0
+        background_count = 0
+        relayed_count = 0
+        data_source_counts = {}
         
-        for packet_features in features.inter_packet:
-            concatenated.extend([packet_features.mean, packet_features.max, 
-                               packet_features.min, packet_features.std])
+        # Used to track chunks of files
+        partial_features_list = []
+        processed_files_count = 0
         
-        # Add throughput features
-        for direction in ['upload', 'download', 'inter']:
-            concatenated.extend(features.bytes_per_second[direction])
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {
+                executor.submit(self._process_single_file, file_info): file_info
+                for file_info in csv_files
+            }
+            
+            for future in as_completed(future_to_file):
+                file_features_dict = future.result()
+                partial_features_list.append(file_features_dict)
+                processed_files_count += 1
+
+                # If we've processed 10 files, flush them to disk
+                if processed_files_count % 10 == 0:
+                    # Convert chunk of features to dataframes and append to CSV
+                    (partial_total_connections, partial_background_count, partial_relayed_count) = self._flush_partial_data(
+                        partial_features_list,
+                        features_file,
+                        metadata_file,
+                        data_source_counts
+                    )
+                    
+                    # Update total
+                    total_connections += partial_total_connections
+                    background_count += partial_background_count
+                    relayed_count += partial_relayed_count
+                    
+                    # After flushing, clear them from memory
+                    partial_features_list = []
+                    
         
-        # Add packet rate features
-        for direction in ['upload', 'download', 'inter']:
-            concatenated.extend(features.packets_per_second[direction])
+            # Flush any leftover partial results if fewer than 10 remain
+            if partial_features_list:
+                (partial_total_connections, partial_background_count, partial_relayed_count) = self._flush_partial_data(
+                    partial_features_list,
+                    features_file,
+                    metadata_file,
+                    data_source_counts
+                )
+            
+                total_connections += partial_total_connections
+                background_count += partial_background_count
+                relayed_count += partial_relayed_count    
+                partial_features_list = []
+
+        # Print summary
+        print("\nNetwork Traffic Analysis Summary")
+        print("================================")
+        print(f"Input Directory: {root_dir}")
+        print(f"Output Directory: {output_dir}")
+        print(f"\nTotal Connections Analyzed: {total_connections:,}")
+        print(f"Background Connections: {background_count:,} "
+              f"({(background_count / total_connections * 100) if total_connections else 0:.1f}%)")
+        print(f"Relayed Connections: {relayed_count:,} "
+              f"({(relayed_count / total_connections * 100) if total_connections else 0:.1f}%)")
+
+        unique_data_sources = list(data_source_counts.keys())
+        print("\nData Sources:", len(unique_data_sources))
         
-        # Add size features
-        for direction in ['upload', 'download', 'inter']:
-            for packet_features in features.size_features[direction]:
-                concatenated.extend([packet_features.mean, packet_features.max,
-                                   packet_features.min, packet_features.std])
+        print("\nConnections by Data Source:")
+        for ds in unique_data_sources:
+            ds_count = data_source_counts[ds]['total']
+            print(f"{ds}: {ds_count} connections")
         
-        return concatenated
+        print(f"\nFeatures File: {features_file}")
+        print(f"Metadata File: {metadata_file}")
+        
+        # Optionally, also write the feature reference text (just once).
+        feature_ref_file = output_dir / "feature_reference.txt"
+        with open(feature_ref_file, 'w') as f:
+            f.write("Feature Names Description\n")
+            f.write("=======================\n\n")
+            for i, feature in enumerate(self.feature_names):
+                f.write(f"{i+1}. {feature}\n")
+            f.write(f"\n{len(self.feature_names)+1}. label (0=background, 1=relayed)\n")
+        print(f"Feature reference saved to: {feature_ref_file}")
+
+    def _flush_partial_data(
+        self, 
+        partial_features_list: List[Dict], 
+        features_file: Path, 
+        metadata_file: Path, 
+        data_source_counts: Dict
+    ) -> None:
+        """
+        Merge all dictionaries in partial_features_list, convert to DataFrames,
+        and append them to the features.csv and metadata.csv. Update data_source_counts
+        and counters (total_connections, background_count, relayed_count).
+        """
+        # Flatten out all dictionary entries from each file
+        merged_features = {}
+        for fdict in partial_features_list:
+            merged_features.update(fdict)
+        
+        if not merged_features:
+            return
+        
+        # Create the DataFrames
+        features_df, metadata_df = self._create_dataframes(merged_features)
+        
+        # Update data_source_counts
+        for ds in metadata_df['data_source'].unique():
+            ds_subset = metadata_df[metadata_df['data_source'] == ds]
+            ds_count = len(ds_subset)
+            if ds not in data_source_counts:
+                data_source_counts[ds] = {'total': 0}
+            data_source_counts[ds]['total'] += ds_count
+        
+        # Append to disk (writing header only if file doesn't exist)
+        features_df.to_parquet(
+            features_file,
+            engine='fastparquet',
+            compression='snappy',
+            append=features_file.exists()  # False if file doesn't exist (new file), True otherwise
+        )
+        
+        metadata_df["analysis_date"] = metadata_df["analysis_date"].astype(str)
+        metadata_df.to_parquet(
+            metadata_file,
+            engine='fastparquet',
+            compression='snappy',
+            append=metadata_file.exists()
+        )
+
+        # Return updated counters
+        total_connections = len(features_df)
+        background_count = (features_df['label'] == 0).sum()
+        relayed_count = (features_df['label'] == 1).sum()
+        return (total_connections, background_count, relayed_count)
+
 
 if __name__ == "__main__":
     import sys
-    from datetime import datetime
     
-    # Get input directory from command line
-    if len(sys.argv) > 1:
-        input_path = Path(sys.argv[1])
-    else:
-        print("\nError: Please provide input path")
-        sys.exit(1)
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Extract network traffic features')
+    parser.add_argument('input_path', type=str, help='Input directory containing CSV files')
+    parser.add_argument('output_path', type=str, help='Output directory for features')
+    
+    args = parser.parse_args()
+    
+    # Convert paths to Path objects
+    input_path = Path(args.input_path)
+    output_dir = Path(args.output_path)
 
     # Verify input directory exists
     if not input_path.exists():
         print(f"\nError: Input directory not found: {input_path}")
         sys.exit(1)
     
-    # Create output directory with matching structure
-    output_dir = Path('data/feats/shehel_pcaps_normal') 
+    # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Initialize feature extractor
     extractor = NetworkFeatureExtractor()
     
-    # Process all CSV files
-    print(f"\nProcessing files from: {input_path}")
-    print(f"Saving results to: {output_dir}")
-    features_df, metadata_df = extractor.process_csv_files(str(input_path))
-    
-    # Print summary statistics
-    total_connections = len(features_df)
-    if total_connections == 0:
-        print("\nNo connections found in the input directory!")
-        sys.exit(1)
-        
-    background_count = sum(features_df['label'] == 0)
-    relayed_count = sum(features_df['label'] == 1)
-    
-    print("\nNetwork Traffic Analysis Summary")
-    print("================================")
-    print(f"Input Directory: {input_path}")
-    print(f"Output Directory: {output_dir}")
-    print(f"\nTotal Connections Analyzed: {total_connections:,}")
-    print(f"Background Connections: {background_count:,} ({background_count/total_connections*100:.1f}%)")
-    print(f"Relayed Connections: {relayed_count:,} ({relayed_count/total_connections*100:.1f}%)")
-    
-    print("\nData Sources:", len(metadata_df['data_source'].unique()))
-    
-    print("\nConnections by Data Source:")
-    print(metadata_df['data_source'].value_counts().to_string())
-    
-    print("\nFeature DataFrame Shape:", features_df.shape)
-    print("Metadata DataFrame Shape:", metadata_df.shape)
-    
-    # Save results
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    features_file = output_dir / "features.csv"
-    metadata_file = output_dir / "metadata.csv"
-    
-    features_df.to_csv(features_file, index=False)
-    metadata_df.to_csv(metadata_file, index=False)
-    
-    print("\nResults saved to:")
-    print(f"- {features_file}")
-    print(f"- {metadata_file}")
-    
-    # Save feature names reference
-    feature_ref_file = output_dir / "feature_reference.txt"
-    with open(feature_ref_file, 'w') as f:
-        f.write("Feature Names Description\n")
-        f.write("=======================\n\n")
-        for i, feature in enumerate(extractor.feature_names):
-            f.write(f"{i+1}. {feature}\n")
-        f.write(f"\n{len(extractor.feature_names)+1}. label (0=background, 1=relayed)")
-    
-    print(f"- {feature_ref_file}")
+    # Process all CSV files in chunks, saving partial results every 10 files
+    extractor.process_csv_files_in_chunks(str(input_path), output_dir, max_workers=1)
