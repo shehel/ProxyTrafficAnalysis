@@ -28,7 +28,7 @@ os.makedirs(folder_name, exist_ok=True)
 # Commands to execute
 commands = [
     f"cp {pcap_path} {folder_name}/mixed.pcap",
-    f"zeek -C -r {folder_name}/mixed.pcap \"LogAscii::use_json=T\" local",
+    f"zeek -C -r {folder_name}/mixed.pcap /"LogAscii::use_json=T",
     f"python extract_feats/rename_logs.py --folder {folder_name}",
     f"python extract_feats/extract_domains.py --folder {folder_name}",
     f"python extract_feats/split_connections.py --folder {folder_name}",
