@@ -5,9 +5,17 @@ import os
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+import json
 import cudf
 import cupy as cp
 from cuml.preprocessing import StandardScaler
+import pdb
+
+EMPIRICAL_PACKET_LENS = None
+BG_LEN_MEAN = None
+BG_LEN_STD = None
+BG_TG_MEAN = None
+BG_TG_STD = None
 
 def get_metrics(array_cp):
     """
@@ -104,64 +112,14 @@ def get_correlation_array(gateway_df, df, pkt_limit, bin_size_seconds=0.1, bound
 
     # 10) Process each connection in a Python loop
     results = []
-    for conn_val in unique_conns.to_pandas():
-        # Retrieve min_time, max_time
-        times = minmax_map.get(conn_val)
-        if not times:
-            continue
-        tmin, tmax = times
-        if cp.isnan(tmin) or cp.isnan(tmax):
-            continue
-
-        start_time = tmin
-        end_time = tmax + bound_range
-
-        # Subset df_binned for this connection
-        sub_mask = (df_binned['conn'] == conn_val)
-        conn_binned = df_binned[sub_mask]
-        if conn_binned.empty:
-            continue
-
-        # Slice gateway bins using searchsorted
-        # Make them 1D CuPy arrays, same dtype as gateway_time_bins
-        start_time_cp = cp.asarray([start_time], dtype=gateway_time_bins.dtype)
-        end_time_cp = cp.asarray([end_time], dtype=gateway_time_bins.dtype)
-
-        left_idx_arr = cp.searchsorted(gateway_time_bins, start_time_cp, side='left')
-        right_idx_arr = cp.searchsorted(gateway_time_bins, end_time_cp, side='right')
-
-        # left_idx_arr and right_idx_arr are 1D Cupy arrays. Extract the int index:
-        left_idx = int(left_idx_arr[0].item())
-        right_idx = int(right_idx_arr[0].item())
-
-        gateway_sub = gateway_binned.iloc[left_idx:right_idx]
-        if gateway_sub.empty:
-            continue
-
-        # Rename columns for clarity
-        gateway_sub = gateway_sub.rename(columns={'pkt_len': 'gw_len'})
-        conn_binned = conn_binned.rename(columns={'pkt_len': 'rl_len'})
-
-        # Merge on time_bin
-        merged = gateway_sub.merge(conn_binned, on='time_bin', how='outer').fillna({'gw_len':0, 'rl_len':0})
-
-        # Convert to CuPy arrays
-        gw_vals = merged['gw_len'].values
-        rl_vals = merged['rl_len'].values
-
-        # Compute z-scores on GPU
-        gw_mean, gw_std = cp.mean(gw_vals), cp.std(gw_vals) + 1e-9
-        rl_mean, rl_std = cp.mean(rl_vals), cp.std(rl_vals) + 1e-9
-
-        gw_z = (gw_vals - gw_mean) / gw_std
-        rl_z = (rl_vals - rl_mean) / rl_std
-
-        # Element-wise correlation array
-        corr_array = gw_z * rl_z
-
-        # Get metrics
-        metrics = get_metrics(corr_array)
-        results.append((conn_val, *metrics))
+    with ThreadPoolExecutor() as executor:
+        futures = {executor.submit(process_single_connection, 
+                                   (conn_val, gateway_binned, df_binned, gateway_time_bins, minmax_map)): 
+                                       conn_val for conn_val in unique_conns.to_pandas()}
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                results.append(result)
 
     # Convert final results to Pandas
     columns = [
@@ -170,6 +128,167 @@ def get_correlation_array(gateway_df, df, pkt_limit, bin_size_seconds=0.1, bound
     ]
     result_df = pd.DataFrame(results, columns=columns)
     return result_df
+
+def process_single_connection(args):
+    """
+    Process a single connection for correlation analysis
+    """
+    conn_val, gateway_binned, df_binned, gateway_time_bins, minmax_map = args
+    
+    # Retrieve min_time, max_time
+    times = minmax_map.get(conn_val)
+    if not times:
+        return None
+    tmin, tmax = times
+    if cp.isnan(tmin) or cp.isnan(tmax):
+        return None
+
+    start_time = tmin
+    end_time = tmax + 1.0  # bound_range hardcoded to 1.0
+
+    # Subset df_binned for this connection
+    sub_mask = (df_binned['conn'] == conn_val)
+    conn_binned = df_binned[sub_mask]
+    if conn_binned.empty:
+        return None
+
+    # Slice gateway bins using searchsorted
+    # Make them 1D CuPy arrays, same dtype as gateway_time_bins
+    start_time_cp = cp.asarray([start_time], dtype=gateway_time_bins.dtype)
+    end_time_cp = cp.asarray([end_time], dtype=gateway_time_bins.dtype)
+
+    left_idx_arr = cp.searchsorted(gateway_time_bins, start_time_cp, side='left')
+    right_idx_arr = cp.searchsorted(gateway_time_bins, end_time_cp, side='right')
+
+    # left_idx_arr and right_idx_arr are 1D Cupy arrays. Extract the int index:
+    left_idx = int(left_idx_arr[0].item())
+    right_idx = int(right_idx_arr[0].item())
+
+    gateway_sub = gateway_binned.iloc[left_idx:right_idx]
+    if gateway_sub.empty:
+        return None
+
+    # Rename columns for clarity
+    gateway_sub = gateway_sub.rename(columns={'pkt_len': 'gw_len'})
+    conn_binned = conn_binned.rename(columns={'pkt_len': 'rl_len'})
+
+    # Merge on time_bin
+    merged = gateway_sub.merge(conn_binned, on='time_bin', how='outer').fillna({'gw_len':0, 'rl_len':0})
+
+    # Convert to CuPy arrays
+    gw_vals = merged['gw_len'].values
+    rl_vals = merged['rl_len'].values
+
+    # Compute z-scores on GPU
+    gw_mean, gw_std = cp.mean(gw_vals), cp.std(gw_vals) + 1e-9
+    rl_mean, rl_std = cp.mean(rl_vals), cp.std(rl_vals) + 1e-9
+
+    gw_z = (gw_vals - gw_mean) / gw_std
+    rl_z = (rl_vals - rl_mean) / rl_std
+
+    # Element-wise correlation array
+    corr_array = gw_z * rl_z
+
+    # Get metrics
+    metrics = get_metrics(corr_array)
+    return (conn_val, *metrics)
+
+
+def load_empirical_samples(json_path='packet_lengths.json'):
+        """Load empirical packet length samples from JSON file"""
+        global EMPIRICAL_PACKET_LENS, BG_LEN_MEAN, BG_LEN_STD, BG_TG_MEAN, BG_TG_STD
+        try:
+            with open(json_path, 'r') as f:
+                json_data = json.load(f)
+                EMPIRICAL_PACKET_LENS = json_data['length']['empirical_samples']
+                BG_LEN_MEAN = json_data['length']['mean']
+                BG_LEN_STD = json_data['length']['std']
+                BG_TG_MEAN = json_data['timing']['mean']
+                BG_TG_STD = json_data['timing']['std']
+                return EMPIRICAL_PACKET_LENS, BG_LEN_MEAN, BG_LEN_STD
+                
+        except (FileNotFoundError, KeyError, json.JSONDecodeError) as e:
+            print(f"Warning: Could not load empirical samples: {e}")
+            return None, None, None
+
+def apply_bias_removal(group, use_empirical_sampling=True):
+    """
+    Handles the bias removal steps:
+    1) If the group has at least `pkt_limit` packets and 4th packet has pkt_len > 1300,
+       drop the 4th and 6th packets.
+    2) If a 4th packet still exists afterward, resample its pkt_len.
+    """
+    if len(group) > 3 and group.iloc[3]['pkt_len'] > 1300:
+        group.drop(index=group.index[3], inplace=True)
+        if len(group) > 4:
+            group.drop(index=group.index[4], inplace=True)
+
+    if len(group) > 3:
+        if use_empirical_sampling and (EMPIRICAL_PACKET_LENS is not None):
+            new_length = np.random.choice(EMPIRICAL_PACKET_LENS)
+        else:
+            if BG_LEN_MEAN is None or BG_LEN_STD is None:
+                raise ValueError("Background distribution parameters are required when empirical sampling is disabled")
+            mean_ = BG_LEN_MEAN
+            std_ = BG_LEN_STD
+            new_length = np.random.normal(loc=mean_, scale=std_)
+            new_length = max(1, int(round(new_length)))
+
+        group.at[group.index[3], 'pkt_len'] = new_length
+
+    return group
+
+def apply_attack(group):
+    """
+    Applies timing attack modification to the group
+    """
+    if len(group) > 3:
+        new_timing = np.random.lognormal(
+            mean=BG_TG_MEAN,
+            sigma=BG_TG_STD
+        )
+        
+        old_timing = group.iloc[3]['ts_relative'] - group.iloc[2]['ts_relative']
+        timing_adjustment = old_timing - new_timing
+        fourth_packet_idx = group.index[3]
+        
+        mask = group.index >= fourth_packet_idx
+        group.loc[mask, 'ts_relative'] = group.loc[mask, 'ts_relative'] - timing_adjustment
+
+    return group
+
+def apply_changes(df, pkt_limit):
+    """
+    Main function that applies both bias removal and timing attack modifications
+    """
+    updated_groups = []
+
+    if df.empty:
+        return df
+
+    for conn_name, group in df.groupby('conn', sort=False):
+        if len(group) >= pkt_limit:
+            group = group.sort_values(by='ts_relative', ascending=True).copy()
+            
+            # Apply bias removal
+            group = apply_bias_removal(group, True)
+            
+            # Apply timing attack
+            group = apply_attack(group)
+            
+            updated_groups.append(group)
+        else:
+            updated_groups.append(group)
+
+    if not updated_groups:
+        raise ValueError(f"No valid groups found with minimum packet limit of {pkt_limit}")
+
+    if len(updated_groups) == 0:
+        print("No changes applied, as no groups found")
+        return df
+    
+    out_df = pd.concat(updated_groups).sort_index()
+    return out_df
 
 
 def process_connection(folder_name, prefix, pkt_limit):
@@ -181,40 +300,72 @@ def process_connection(folder_name, prefix, pkt_limit):
         return all_data
 
     df = pd.read_csv(file_path)
+    unbiased_df = apply_changes(df, pkt_limit)
     gateway_df = pd.read_csv(gateway_file_path)
-    correlation_df = get_correlation_array(gateway_df, df, pkt_limit)
+    correlation_df = get_correlation_array(gateway_df, unbiased_df, pkt_limit)
     correlation_df['pcap_nb'] = folder_name
     all_data.extend(correlation_df.to_dict('records'))
 
     return all_data
 
+def save_batch(data_dfs, prefix, set_name, batch_num):
+    """Save a batch of data to CSV"""
+    if not data_dfs:
+        return
+    
+    batch_df = pd.concat(data_dfs)
+    output_dir = f'content/attack_subset_features_03_18/{set_name}'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    output_file = os.path.join(output_dir, f'{prefix}_corr_batch_{batch_num}.csv')
+    batch_df.to_csv(output_file, index=False)
+    print(f"Saved {prefix} batch {batch_num} with {len(batch_df)} rows")
+
+def process_batch(folder_paths, prefix, pkt_limit):
+    """Process a batch of folders and return their combined results"""
+    batch_results = []
+    
+    with ThreadPoolExecutor() as executor:
+        futures = {executor.submit(process_connection, path, prefix, pkt_limit): path 
+                  for path in folder_paths}
+        
+        for future in tqdm(as_completed(futures), desc=f"Processing {len(futures)} PCAPs", total=len(futures)):
+            result = future.result()
+            if result:
+                df = pd.DataFrame(result)
+                df['label'] = 1 if prefix == "relayed" else 0
+                batch_results.append(df)
+    
+    return batch_results
+
 def get_correlation_array_multithread(folder_paths, set_name, pkt_limit):
     prefixes = ["relayed", "background"]
-    background_dfs = []
-    relayed_dfs = []
-    for prefix in tqdm(prefixes, desc="Processing prefixes"):
-        with ThreadPoolExecutor() as executor:
-            futures = {executor.submit(process_connection, path, prefix, pkt_limit): path for path in folder_paths}
-            for future in tqdm(as_completed(futures),
-                               total=len(futures),
-                               desc=f"Processing {prefix} connections"):
-                result = future.result()
-                
-                if prefix == "background":
-                    background_df = pd.DataFrame(result)
-                    background_df['label'] = 0
-                    background_dfs.append(background_df)
-                else:
-                    relayed_df = pd.DataFrame(result)
-                    relayed_df['label'] = 1
-                    relayed_dfs.append(relayed_df)
-                
-    background_combined = pd.concat(background_dfs)
-    relayed_combined = pd.concat(relayed_dfs)
-    all_data_df = pd.concat([background_combined, relayed_combined])
-    all_data_df.to_csv(f'content/subset_features_03_18/{set_name}/corr_feature_50.csv', index=False)
+    BATCH_SIZE = 5  # Number of folders to process before saving
     
-    return all_data_df
+    for prefix in prefixes:
+        batch_number = 0
+        total_batches = (len(folder_paths) + BATCH_SIZE - 1) // BATCH_SIZE  # ceil division
+        
+        print(f"\nProcessing {prefix} data:")
+        # Create progress bar for batches
+        with tqdm(total=total_batches, desc=f"{prefix} batches") as batch_pbar:
+            # Process folders in batches
+            for i in range(0, len(folder_paths), BATCH_SIZE):
+                batch_folders = folder_paths[i:i + BATCH_SIZE]
+                
+                # Process the current batch
+                batch_results = process_batch(batch_folders, prefix, pkt_limit)
+                
+                # Save the batch if we have results
+                if batch_results:
+                    save_batch(batch_results, prefix, set_name, batch_number)
+                    batch_number += 1
+                
+                # Clear memory
+                del batch_results
+                
+                # Update progress bar
+                batch_pbar.update(1)
 
 def main():
     pkt_limit = 20
@@ -235,12 +386,16 @@ def main():
                     if os.path.isdir(os.path.join(val_path, folder))]
     
 
-    test_df = get_correlation_array_multithread(test_folders, "test", pkt_limit)
-    val_df = get_correlation_array_multithread(val_folders, "val", pkt_limit)
-    train_df = get_correlation_array_multithread(train_folders, "train", pkt_limit)
+    # Get distribution info from json file
+    load_empirical_samples('background_distributions.json')
+    
+    print("Processing test set...")
+    get_correlation_array_multithread(test_folders, "test", pkt_limit)
+    print("Processing validation set...")
+    get_correlation_array_multithread(val_folders, "val", pkt_limit)
+    print("Processing training set...")
+    get_correlation_array_multithread(train_folders, "train", pkt_limit)
 
-    # all_data_df = pd.concat([train_df, test_df, val_df], ignore_index=True)
-    # print(all_data_df)
 
 if __name__ == "__main__":
     main()
