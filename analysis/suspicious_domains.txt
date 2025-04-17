@@ -1,0 +1,61 @@
+js.onclckmn.com - Category: {}, Combined Score: 1, Top Threats: Seclookup: malicious
+partiustore.com.br - Category: {}, Combined Score: 1, Top Threats: Bfore.Ai PreCrime: malicious
+atlconstrucao.com - Category: {}, Combined Score: 1, Top Threats: Seclookup: malicious
+www.mantopremium.com - Category: {}, Combined Score: 1, Top Threats: Bfore.Ai PreCrime: suspicious
+queerlinq.com - Category: {}, Combined Score: 1, Top Threats: Fortinet: suspicious
+c6e1f1ff68.be51586160.com - Category: {}, Combined Score: 3, Top Threats: alphaMountain.ai: suspicious, Fortinet: suspicious, Seclookup: malicious
+clladspro.com - Category: {}, Combined Score: 2, Top Threats: Gridinsoft: suspicious, Yandex Safebrowsing: malicious
+smartfox.group - Category: {}, Combined Score: 1, Top Threats: Bfore.Ai PreCrime: malicious
+www.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+redirectpoint.xyz - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+qruqon.com - Category: {}, Combined Score: 2, Top Threats: alphaMountain.ai: suspicious, Yandex Safebrowsing: malicious
+s8-static.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+proftrafficcounter.com - Category: {}, Combined Score: 8, Top Threats: alphaMountain.ai: malicious, Bfore.Ai PreCrime: malicious, CRDF: malicious
+dpm.demdex.net - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+neutralmove.xyz - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+nextgenideas.xyz - Category: {}, Combined Score: 2, Top Threats: Bfore.Ai PreCrime: malicious, Forcepoint ThreatSeeker: suspicious
+www.usecelena.com.br - Category: {}, Combined Score: 1, Top Threats: Bfore.Ai PreCrime: malicious
+aino7.sbs - Category: {}, Combined Score: 1, Top Threats: ESET: malicious
+sell.smartstore.naver.com - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+dpm.demdex.net - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+data.cdnbasket.net - Category: {}, Combined Score: 1, Top Threats: Trustwave: suspicious
+brightforge.xyz - Category: {}, Combined Score: 2, Top Threats: alphaMountain.ai: suspicious, Forcepoint ThreatSeeker: suspicious
+appcmsprod.viewlift.com - Category: {}, Combined Score: 1, Top Threats: CRDF: malicious
+www.emamiltd.in - Category: {}, Combined Score: 1, Top Threats: Quttera: malicious
+wap.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+cdn.valuad.cloud - Category: {}, Combined Score: 1, Top Threats: alphaMountain.ai: suspicious
+www.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+dpm.demdex.net - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+qruqon.com - Category: {}, Combined Score: 2, Top Threats: alphaMountain.ai: suspicious, Yandex Safebrowsing: malicious
+dpm.demdex.net - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+a.mktgcdn.com - Category: {}, Combined Score: 1, Top Threats: Seclookup: malicious
+maroola.aditms.me - Category: {}, Combined Score: 5, Top Threats: alphaMountain.ai: suspicious, CRDF: malicious, CyRadar: malicious
+nextgenideas.xyz - Category: {}, Combined Score: 2, Top Threats: Bfore.Ai PreCrime: malicious, Forcepoint ThreatSeeker: suspicious
+supapush.net - Category: {'alphaMountain.ai': 'Unrated (alphaMountain.ai)'}, Combined Score: 1, Top Threats: Gridinsoft: suspicious
+lana-jewel.com - Category: {}, Combined Score: 1, Top Threats: Gridinsoft: suspicious
+neutralmove.xyz - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+safejump.xyz - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+apkpure.com - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+dpm.demdex.net - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+apkcombo.com - Category: {}, Combined Score: 1, Top Threats: alphaMountain.ai: suspicious
+gizmonestsllc.com - Category: {}, Combined Score: 1, Top Threats: Bfore.Ai PreCrime: malicious
+www.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+www.r2calcioit.com - Category: {}, Combined Score: 1, Top Threats: Netcraft: malicious
+gofood.link - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+sniperselite.com - Category: {'Forcepoint ThreatSeeker': 'newly registered websites'}, Combined Score: 2, Top Threats: Bfore.Ai PreCrime: malicious, Fortinet: malicious
+www.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+neutraljump.xyz - Category: {}, Combined Score: 2, Top Threats: alphaMountain.ai: suspicious, Forcepoint ThreatSeeker: suspicious
+www.jjwxc.net - Category: {}, Combined Score: 1, Top Threats: AutoShun: malicious
+apkcombo.com - Category: {}, Combined Score: 1, Top Threats: alphaMountain.ai: suspicious
+neutraljump.xyz - Category: {}, Combined Score: 2, Top Threats: alphaMountain.ai: suspicious, Forcepoint ThreatSeeker: suspicious
+neutralpath.xyz - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+hb.hometalkmedia.org - Category: {}, Combined Score: 1, Top Threats: SOCRadar: malicious
+apkpure.com - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+s3.quju.app - Category: {}, Combined Score: 1, Top Threats: Seclookup: malicious
+cescobarsupplements.com - Category: {}, Combined Score: 2, Top Threats: Bfore.Ai PreCrime: malicious, Gridinsoft: suspicious
+movewith.xyz - Category: {}, Combined Score: 1, Top Threats: Forcepoint ThreatSeeker: suspicious
+www.emamiltd.in - Category: {}, Combined Score: 1, Top Threats: Quttera: malicious
+www.r2calcioit.com - Category: {}, Combined Score: 1, Top Threats: Netcraft: malicious
+kr.torrentkitty.red - Category: {}, Combined Score: 2, Top Threats: CRDF: malicious, Seclookup: malicious
+ingenerale.com - Category: {}, Combined Score: 1, Top Threats: Gridinsoft: suspicious
+capaciousdrewreligion.com - Category: {}, Combined Score: 6, Top Threats: alphaMountain.ai: malicious, CyRadar: malicious, Forcepoint ThreatSeeker: malicious
