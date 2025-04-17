@@ -1,5 +1,7 @@
-# Ignore all data files in the data/feats directory
-data/**
+# Ignore all data files in the directories with data such as csvs, etc
+content
+data
+classification/results
 
 # Ignore all folders with extracted features
 extract_feats/processed/**
@@ -9,4 +11,6 @@ extract_feats/processed/**
 
 # Ignore IDE files
 .idea
+.vscode
+.ipynb_checkpoints
 __pycache__
