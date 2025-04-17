@@ -8,6 +8,9 @@ from pathlib import Path
 import pdb
 import json
 import pdb
+import random
+import numpy as np
+
 @dataclass
 class PacketFeatures:
     """Data class to store packet features"""
@@ -29,15 +32,24 @@ class ConnectionFeatures:
 
 class NetworkFeatureExtractor:
     """Class to handle network feature extraction"""
-    PACKET_CHECKPOINTS = [2, 4,8,16,32,64]
+    PACKET_CHECKPOINTS = [2, 4,8, 16,20]
     REQUIRED_LENGTH = 6
-    MAX_PACKETS = 64
+    MAX_PACKETS = 20
+    MAX_EMPIRICAL_SAMPLES = 50000
+    RANDOM_SEED = 42  # Add constant for random seed
     
-    def __init__(self, adversarial_attack: bool = False, distributions_path: str = None):
+    def __init__(self, adversarial_attack: bool = False, distributions_path: str = None, 
+                 use_empirical_sampling: bool = False):
+        # Set random seeds
+        random.seed(self.RANDOM_SEED)
+        np.random.seed(self.RANDOM_SEED)
+        
         self.feature_names = self._generate_feature_names()
         self.adversarial_attack = adversarial_attack
         self.background_timing_distribution = None
         self.background_length_distribution = None
+        self.empirical_packet_lengths = None
+        self.use_empirical_sampling = use_empirical_sampling
         
         # Load distributions if path is provided
         if distributions_path:
@@ -248,10 +260,6 @@ class NetworkFeatureExtractor:
         """
         Fit timing and packet length distributions from all background traffic in training files
         and save the parameters to disk.
-        
-        Args:
-            root_dir: Root directory containing CSV files
-            output_path: Path to save distribution parameters
         """
         # Find all CSV files
         csv_files = self._find_csv_files(root_dir)
@@ -307,12 +315,18 @@ class NetworkFeatureExtractor:
             'std': float(np.std(np.log(timing_diffs)))
         }
         
-        # Fit packet length distribution
+        # Store empirical packet lengths (limited to MAX_EMPIRICAL_SAMPLES)
         packet_lengths = np.array(packet_lengths)
         packet_lengths = packet_lengths[packet_lengths > 0]
+        if len(packet_lengths) > self.MAX_EMPIRICAL_SAMPLES:
+            np.random.shuffle(packet_lengths)
+            packet_lengths = packet_lengths[:self.MAX_EMPIRICAL_SAMPLES]
+        
+        # Fit normal distribution for packet lengths as fallback
         length_distribution = {
             'mean': float(np.mean(packet_lengths)),
-            'std': float(np.std(packet_lengths))
+            'std': float(np.std(packet_lengths)),
+            'empirical_samples': packet_lengths.tolist()
         }
         
         # Save distributions to disk
@@ -334,15 +348,7 @@ class NetworkFeatureExtractor:
         self.background_length_distribution = length_distribution
         
     def load_background_distributions(self, file_path: str) -> bool:
-        """
-        Load background distributions from a saved file.
-        
-        Args:
-            file_path: Path to the saved distribution parameters
-            
-        Returns:
-            bool: True if loaded successfully, False otherwise
-        """
+        """Load background distributions from a saved file."""
         try:
             with open(file_path, 'r') as f:
                 distributions = json.load(f)
@@ -350,9 +356,15 @@ class NetworkFeatureExtractor:
             self.background_timing_distribution = distributions['timing']
             self.background_length_distribution = distributions['length']
             
+            # Load empirical samples if available
+            if 'empirical_samples' in distributions['length']:
+                self.empirical_packet_lengths = np.array(distributions['length']['empirical_samples'])
+            
             print(f"Loaded background distributions from {file_path}")
-            print(f"Timing: μ={np.exp(self.background_timing_distribution['mean']):.3f}ms, "
-                  f"Length: μ={self.background_length_distribution['mean']:.0f}bytes")
+            print(f"Timing: μ={np.exp(self.background_timing_distribution['mean']):.3f}ms")
+            if self.empirical_packet_lengths is not None:
+                print(f"Length: {len(self.empirical_packet_lengths)} empirical samples available")
+            print(f"Length: μ={self.background_length_distribution['mean']:.0f}bytes")
             return True
         except Exception as e:
             print(f"Error loading background distributions: {e}")
@@ -396,9 +408,14 @@ class NetworkFeatureExtractor:
             
             # Preprocess each connection before any other operations
             processed_connections = {}
+            connection_rtts = {}  # New dict to store RTTs
+            
             for conn_id, conn_data in df.groupby('conn'):
                 # Sort and drop packets
                 conn_data = conn_data.sort_values('ts_relative')
+                
+                # Calculate RTT before any packet dropping
+                                
                 if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
                     conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
                     conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
@@ -412,17 +429,18 @@ class NetworkFeatureExtractor:
             for conn_id, conn_data in processed_connections.items():
                 # Apply adversarial attack for relayed connections if distributions are available
                 if self.adversarial_attack and file_type == 'relayed' and self.background_timing_distribution:
-                    print ("applying timing attack", file_path)
+                    #print ("applying timing attack", file_path)
                     conn_data = self._apply_timing_attack(conn_data)
                 
-                #if self.adversarial_attack and file_type != 'relayed' and self.background_timing_distribution:
-                    #conn_data.at[3, 'pkt_len'] = 550
                 extracted_features = self.extract_features(conn_data)
+                rtt = get_rtt(conn_data)
+
                 if extracted_features is not None:
                     features[f"{file_path}_{file_type}_{conn_id}"] = {
                         'features': extracted_features,
                         'type': file_type,
-                        'provider': conn_data['App name'].iloc[0]
+                        'provider': 'null',#conn_data['App name'].iloc[0],
+                        'rtt': rtt # Add RTT to features dict
                     }
             
             return features
@@ -431,43 +449,45 @@ class NetworkFeatureExtractor:
             return {}
             
     def _create_dataframes(self, features: Dict) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Create features and metadata DataFrames with enhanced metadata and labels
-        
-        Returns:
-            Tuple containing:
-            - features_df: DataFrame with features and binary label (0=background, 1=relayed)
-            - metadata_df: DataFrame with connection metadata
-        """
+        """Create features and metadata DataFrames with enhanced metadata and labels"""
         data = []
         labels = []
         metadata = []
+        conn_ids = []
+        pcaps = []
+        rtts = []  # New list for RTT values
         
         for key, value in features.items():
             # Extract file path and connection info from key
             file_path, conn_type, conn_id = key.rsplit('_', 2)
+            pcap = Path(file_path).parts[-2]
             
             # Add features and binary label
             data.append(value['features'])
             labels.append(1 if value['type'] == 'relayed' else 0)
+            conn_ids.append('normal_conn_'+conn_id)
+            pcaps.append(pcap)
+            rtts.append(value['rtt'])  # Use pre-calculated RTT
             
             metadata.append({
                 'connection_id': key,
                 'type': value['type'],
-                'provider': value['provider'],
+                'provider': 'null',#value['provider'],
                 'file_path': file_path,
                 'original_conn_id': conn_id,
                 'timestamp': pd.Timestamp.now(),
                 'is_relayed': value['type'] == 'relayed'
             })
         
-        # Create features DataFrame with label column
+        # Create features DataFrame with label column and new columns
         features_df = pd.DataFrame(data, columns=self.feature_names)
         features_df['label'] = labels
+        features_df['conn'] = conn_ids
+        features_df['pcap'] = pcaps
+        features_df['rtt'] = rtts
         
         # Create metadata DataFrame
         metadata_df = pd.DataFrame(metadata)
-        
-        # Add derived metadata columns
         metadata_df['data_source'] = metadata_df['file_path'].apply(lambda x: Path(x).parent.name)
         metadata_df['analysis_date'] = pd.Timestamp.now().date()
         
@@ -503,7 +523,7 @@ class NetworkFeatureExtractor:
         # Add throughput features
         for direction in ['upload', 'download', 'inter']:
             concatenated.extend(features.bytes_per_second[direction])
-        
+       
         # Add packet rate features
         for direction in ['upload', 'download', 'inter']:
             concatenated.extend(features.packets_per_second[direction])
@@ -520,7 +540,7 @@ class NetworkFeatureExtractor:
         """Apply timing and packet length attack to relayed connection data"""
         conn_data = conn_data.sort_values('ts_relative').reset_index(drop=True)
         
-        if len(conn_data) < 4 or not self.background_timing_distribution or not self.background_length_distribution:
+        if len(conn_data) < 4 or not self.background_timing_distribution:
             return conn_data
             
         # Generate new timing difference from background distribution
@@ -536,31 +556,65 @@ class NetworkFeatureExtractor:
         timing_adjustment = old_timing - new_timing
         conn_data.loc[3:, 'ts_relative'] = conn_data.loc[3:, 'ts_relative'] - timing_adjustment
         
-        # Generate and apply new packet length for the 4th packet
-        new_length = np.random.normal(
-            loc=self.background_length_distribution['mean'],
-            scale=self.background_length_distribution['std']
-        )
-        # Ensure packet length is positive and integer
-        new_length = max(1, int(round(new_length)))
-        conn_data.at[3, 'pkt_len'] = new_length
+        # Generate new packet length using empirical sampling if available and enabled
+        if self.use_empirical_sampling and self.empirical_packet_lengths is not None:
+            new_length = np.random.choice(self.empirical_packet_lengths)
+        else:
+            # Fall back to normal distribution sampling
+            new_length = np.random.normal(
+                loc=self.background_length_distribution['mean'],
+                scale=self.background_length_distribution['std']
+            )
+            new_length = max(1, int(round(new_length)))
         
+        conn_data.at[3, 'pkt_len'] = new_length
         return conn_data
 
+def get_rtt(conn_data: pd.DataFrame) -> float:
+    """
+    Calculate RTT as time difference between first large packet (>1000 bytes) and first packet
+    
+    Args:
+        conn_data: DataFrame containing connection data with 'ts_relative' and 'pkt_len' columns
+        
+    Returns:
+        float: RTT in milliseconds, or 0 if no large packet found
+    """
+    try:
+        # Get first packet timestamp
+        first_ts = conn_data.iloc[0]['ts_relative']
+        
+        # Find first packet > 1000 bytes
+        large_packet = conn_data[conn_data['pkt_len'] > 1000].iloc[0]
+        
+        # Calculate RTT
+        rtt = large_packet['ts_relative'] - first_ts
+        return float(rtt)
+    except (IndexError, KeyError):
+        return 0.0
 
 if __name__ == "__main__":
     import sys
     import argparse
     from datetime import datetime
     
+    # Add these lines before creating the NetworkFeatureExtractor
+    RANDOM_SEED = 42
+    random.seed(RANDOM_SEED)
+    np.random.seed(RANDOM_SEED)
+    
     parser = argparse.ArgumentParser(description='Extract network traffic features')
     parser.add_argument('input_path', help='Input path (must start with data/processed/)')
     parser.add_argument('--adversarial', action='store_true', help='Enable adversarial timing attack')
+    parser.add_argument('--empirical-sampling', action='store_true', 
+                       help='Use empirical sampling for packet lengths')
     parser.add_argument('--fit-distributions', action='store_true', 
                        help='Fit background distributions on training data and save to disk')
     parser.add_argument('--load-distributions', type=str, default='',
                        help='Load background distributions from file')
     parser.add_argument('--workers', type=int, default=1, help='Number of worker threads')
+    parser.add_argument('--output-prefix', type=str, default='features_clean_v4',
+                       help='Prefix for output files (default: features_clean_v4)')
     args = parser.parse_args()
     
     input_path = Path(args.input_path)
@@ -580,8 +634,11 @@ if __name__ == "__main__":
     
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Initialize feature extractor with adversarial flag
-    extractor = NetworkFeatureExtractor(adversarial_attack=args.adversarial)
+    # Initialize feature extractor with adversarial flag and empirical sampling option
+    extractor = NetworkFeatureExtractor(
+        adversarial_attack=args.adversarial,
+        use_empirical_sampling=args.empirical_sampling
+    )
     
     # Handle fitting or loading distributions based on command-line arguments
     if args.fit_distributions:
@@ -629,23 +686,23 @@ if __name__ == "__main__":
     
     # Save results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    features_file = output_dir / "features.csv"
-    metadata_file = output_dir / "metadata.csv"
-    
-    features_df.to_csv(features_file, index=False)
-    metadata_df.to_csv(metadata_file, index=False)
-    
+    features_file = output_dir / f"{args.output_prefix}.parquet"
+    metadata_file = output_dir / f"{args.output_prefix}_metadata.parquet"
+    feature_ref_file = output_dir / f"{args.output_prefix}_reference.txt"
+
+    features_df.to_parquet(features_file, index=False)
+    metadata_df.to_parquet(metadata_file, index=False)
+
     print("\nResults saved to:")
     print(f"- {features_file}")
     print(f"- {metadata_file}")
-    
+
     # Save feature names reference
-    feature_ref_file = output_dir / "feature_reference.txt"
     with open(feature_ref_file, 'w') as f:
         f.write("Feature Names Description\n")
         f.write("=======================\n\n")
         for i, feature in enumerate(extractor.feature_names):
             f.write(f"{i+1}. {feature}\n")
         f.write(f"\n{len(extractor.feature_names)+1}. label (0=background, 1=relayed)")
-    
+
     print(f"- {feature_ref_file}")
