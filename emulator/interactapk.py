@@ -14,10 +14,10 @@ global earnappkwds
 global signingoogle
 global passgmail
 global gmailusername
-clickkwds = ["sure!","link device to my account","accept", "start", "i accept", "enter","i agree", "ok", "ok, i agree", "skip","allow","connect", "continue", "add", "next", "agree", "got it", "yes", "start using the app", "off", "i got it", "always", "agree & continue", "no thanks", "retry", "while using the app", "only this time", "change to pin code", "yes i am 18+", "add new proxy", "accept & continue", "log in with google", "never", "visit this unsafe site", "details"]
-earnappkwds = ["log in with google"]
+clickkwds = ["sure!","link device to my account","accept", "start", "i accept", "enter","i agree", "ok", "ok, i agree", "skip","allow","connect", "continue", "add", "next", "agree", "got it", "yes", "start using the app", "off", "i got it", "always", "agree & continue", "no thanks", "retry", "while using the app", "only this time", "change to pin code", "yes i am 18+", "add new proxy", "accept & continue", "log in with google", "never"] 
+earnappkwds = ["earnapp.com", "Forgot email?"]
 signingoogle = False
-gmailusername = "qcri2024@gmail.com" # Google account details for SIGN UP/LOG IN - Disable 2 Factor Authentication before sign in, if applicable
+gmailusername = "qcri2023@gmail.com" # Google account details for SIGN UP/LOG IN - Disable 2 Factor Authentication before sign in, if applicable
 passgmail = "Qcriproxytest@42"
 
 def get_uidump():
@@ -36,9 +36,6 @@ def get_uidump():
 # Process dump XML file, get the actions and coordinates
 def get_actions(dumpf):
     actiondt = dict()
-    ##print("Extracting action coordinates")
-    # with open(dumpf, "r") as f:
-    #     alllines = f.readlines()
     if not os.path.isfile(dumpf):
         print("Failed to obtaine UI dump for APK. Exiting UI interaction")
         return False
@@ -47,9 +44,6 @@ def get_actions(dumpf):
     if dump == None:
         return False
 
-    #print(dump.nodeName)
-    #print(dump.firstChild.tagName)
-    #print(dump)
     nodes = dump.getElementsByTagName("node")
     for elem in nodes:
         actionname = elem.getAttribute("text")
@@ -65,17 +59,13 @@ def get_actions(dumpf):
         coordinates = elem.getAttribute("bounds")
         enabled = elem.getAttribute("enabled")
         focusable = elem.getAttribute("focusable")
-        ##print("NODE: ",actionname, "checkable: ", checkable," clickable: ",clickable," scrollable: ",scrollable," longclickable: ", longclickable)
         if len(actionname) >= 1 and not actionname in actiondt:
             if checkable == "true" or clickable == "true" or scrollable == "true" or longclickable == "true" or enabled == "true":
-                ##print("Adding: ",actionname," to action list")
                 actiondt[actionname] = {"xy": coordinates, "uitype": uitype, "checkable": checkable, "clickable": clickable, "scrollable": scrollable, "longclickable": longclickable, "enabled": enabled, "focusable": focusable}
 
-    ##print("2* Actions available for UI interaction: ", actiondt.keys())
     return actiondt
 
 def sort_actions(actiondt):
-    ##print(actiondt)
     # click/checkwords: [xx,yy,xx_end,yy_end]
     clickables = dict()
     check = dict()
@@ -84,8 +74,6 @@ def sort_actions(actiondt):
         clickable = v["clickable"]
         enabled = v["enabled"]
         checkable = v["checkable"]
-        #cc = v["xy"].strip("[").strip("]").split("][")
-        # Extract the bounds and add a check to ensure they are properly formatted
        # Extract the bounds and add a check to ensure they are properly formatted
         bounds_str = v["xy"]
         if not bounds_str or bounds_str == "[0,0][0,0]":
@@ -112,36 +100,32 @@ def sort_actions(actiondt):
         buttontype = v["uitype"]
         if clickable and enabled:
             clickables[k] = [xx,yy,xxe,yye,buttontype]
-            #print("Clickable: ",k, v["xy"])
         else:
             if checkable and enabled:
                 check[k] = [xx,yy,xxe,yye, buttontype]
-                #print("Checkable: ",k, v["xy"])
             if buttontype == "com.boostdev.volumebooster:id/sb_boost": # Oxylabs
                 clickables[k] = [xx,yy,xxe,yye,buttontype]
 
-    #{k: v for k, v in sorted(x.items(), key=lambda item: item[1])}
     return clickables, check
 
 def is_in_kwds(k):
     word = k.lower()
     for keywd in clickkwds:
-        #print(word, "in", keywd, "?")
-        if (word == keywd or word in keywd) and word != "Hide Details":
+        if word == keywd or word in keywd:
             return True
     return False
 
 # Based on keywords on the page, detect if sign in required
 def earnappsignin(k):
     global signingoogle
-    if signingoogle:
+    if signingoogle == True:
         return
-    if not signingoogle:
+    if signingoogle == False:
         word = k.lower()
         if word in earnappkwds:
            signingoogle = word
            return
-    if not signingoogle == True: # kwds on page matched partially
+    if not signingoogle: # kwds on page matched partially
         word = k.lower()
         if (not word == signingoogle) and word in earnappkwds:
            signingoogle = True
@@ -172,7 +156,7 @@ def execute_click(x, y):
     os.system("adb shell input tap "+x+" "+y)
     return
 
-# Earnitapp: adb shell input swipe 475 1086 965 1282 300
+# EarnApp: adb shell input swipe 475 1086 965 1282 300
 def execute_scroll(x, y, xxe, yye, duration="300"):
     print("Attempting Button scroll/Swipe")
     nulllst = ["None", None]
@@ -227,8 +211,6 @@ def login(username=False, password=False):
     return
 
 def signup():
-    # Email username = "primash42"
-    # Email password = "qcri@PM2023"
     password = "qcritest42"
     email = "primash42@outlook.com"
     name = "Priyanka"
@@ -243,12 +225,9 @@ def main_intc(clicklimit=20):
     global gmailusername
 
     earnlogged = False
-    seen_warning = False
-    clicked_details = False
 
     # Default clicks = 10
     for i in range(0, 20):
-        print("=" * 36)
         time.sleep(2)
         dumpf = get_uidump()
         if dumpf == False:
@@ -261,47 +240,19 @@ def main_intc(clicklimit=20):
         clickables, checkables = sort_actions(actiondt)
         clickelems = choose_action(clickables, checkables)
         clickedok = False
-
         if len(clickelems) > 0:
             for tple in clickelems:
                 print("Performing click on: ", tple[0], tple[1])
                 clickwords = tple[1].lower()
-                print(clickwords)
 
                 if "com.boostdev.volumebooster:id/sb_boost" in clickwords:
                     perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3],"oxylabsbooster")
                     return
 
-                if not clicked_details and "details" in clickwords:
-                    print("="*36)
-                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
-                    time.sleep(1)
-                    clicked_details = True
-                    continue
-
-                if clicked_details and "visit this unsafe site" in clickwords:
-                    print("+"*36)
-                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
-                    time.sleep(2)
-                    seen_warning = True
-
-                    # import pdb
-                    # pdb.set_trace()
-                    continue
-
-                if seen_warning and "log in" in clickwords:
-                    print("x" * 36)
-                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
-                    time.sleep(2)
-                    seen_warning = True
-
-                    continue
-
-                if seen_warning and signingoogle and not earnlogged:
+                if signingoogle and not earnlogged:
                     print("Sign into Google is TurnedON")
                     print("Entering GMAIL USERNAME")
                     earnlogged = login(gmailusername,False)
-                    time.sleep(2)
                     print("Action status: ",earnlogged)
                     continue
 
@@ -316,9 +267,8 @@ def main_intc(clicklimit=20):
                          earnlogged = False
                          return
 
-                if not clicked_details:
-                    perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
-                    time.sleep(2)
+                perform_click(tple[0][0], tple[0][1], tple[0][2], tple[0][3], tple[0][4])
+                time.sleep(5)
         else:
             if iterbomb == clicklimit:
                 print("Stopping UI interaction for APK......")
@@ -327,7 +277,3 @@ def main_intc(clicklimit=20):
 
     print("UI interaction complete.....Bye!")
     return
-
-#dumpf = get_uidump()
-#main_intc() # uncomment if you just want to run the interaction on the emulator
-
