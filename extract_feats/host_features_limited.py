@@ -6,14 +6,56 @@ Created on Wed Nov 27 14:55:46 2024
 @author: mounarabhi
 """
 import pandas as pd
-
+import pdb
+import numpy as np
 def calc_seconds(ts_list):
     return ts_list[-1] - ts_list[0]
 
-def extract_features_by_conn(file_path, gw=True, max_pkts=50):
+def extract_features_by_conn(file_path, gw=True, max_pkts=20, comp_pkts_limit=50, bias_fix = False, attack = False, fix_dict=None):
     df = pd.read_csv(file_path)
+    if bias_fix:
+        assert fix_dict is not None, "fix_dict must be provided when bias_fix is True"
+        for conn_id, conn_data in df.groupby('conn'):
+        # Sort and drop packets
+            conn_data = conn_data.sort_values('ts_relative')
+            if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
+                conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
+                conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
+                new_length = np.random.choice(fix_dict['empirical_packet_lengths'])
+                conn_data.at[3, 'pkt_len'] = new_length
+
+            if attack:
+
+                conn_data.reset_index(drop=True, inplace=True)
+                new_timing = np.random.lognormal(
+                    mean=fix_dict['timing_distribution']['mean'],
+                    sigma=fix_dict['timing_distribution']['std']
+                )
+            
+                # Calculate current timing difference
+                old_timing = conn_data.iloc[3]['ts_relative'] - conn_data.iloc[2]['ts_relative']
+            
+                # Calculate and apply timing adjustment
+                timing_adjustment = old_timing - new_timing 
+                conn_data.loc[3:, 'ts_relative'] = conn_data.loc[3:, 'ts_relative'] - timing_adjustment
+            df.drop(df[df['conn'] == conn_id].index, inplace=True)
+            df = pd.concat([df, conn_data], ignore_index=True)
+
+
+    #df = df.dropna(subset=['ts_relative', 'pkt_len', 'conn'])
+    rows_before = len(df)
+
+    # Perform the dropna operation
     df = df.dropna(subset=['ts_relative', 'pkt_len', 'conn'])
 
+    # Calculate and print the number of rows dropped
+    rows_after = len(df)
+    rows_dropped = rows_before - rows_after
+    print(f"Number of rows before dropna: {rows_before}")
+    print(f"Number of rows after dropna: {rows_after}")
+    print(f"Total rows dropped: {rows_dropped}")
+    if rows_dropped > 0:
+        pdb.set_trace()
     grouped = df.groupby('conn')
 
     all_features = []
@@ -22,7 +64,9 @@ def extract_features_by_conn(file_path, gw=True, max_pkts=50):
     for conn_name, group in grouped:
         if len(group) < max_pkts:
             continue
-        group = group.head(max_pkts)
+        group2 = group
+        # head() value should take min of comp_pkts_limit and len(group)
+        group = group.head(min(comp_pkts_limit, len(group)))
 
         features = {'conn': conn_name}
         group = group.sort_values(by='ts_relative')
@@ -32,8 +76,8 @@ def extract_features_by_conn(file_path, gw=True, max_pkts=50):
         features['pkts_rate'] = len(group) / total_time if total_time > 0 else 0
 
         # Duration analysis
-        first_ts = group['ts_relative'].iloc[0]
-        last_ts = group['ts_relative'].iloc[-1]
+        first_ts = group2['ts_relative'].iloc[0]
+        last_ts = group2['ts_relative'].iloc[-1]
         durations = last_ts - first_ts
         features['duration'] = durations
         # Time gaps between connections
