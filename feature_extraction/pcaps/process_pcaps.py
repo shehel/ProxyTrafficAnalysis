@@ -66,6 +66,6 @@ for root, _, files in os.walk(pcap_folder):
         if file.endswith(".pcap"):
             pcap_files.append((root, file))
 with ThreadPoolExecutor(max_workers=7) as executor:
-    executor.map(process_pcap, pcap_files[:5])
+    executor.map(process_pcap, pcap_files)
 
 print("Processing completed.")
