@@ -1,16 +1,25 @@
 import os
 import subprocess
+import argparse
 from concurrent.futures import ThreadPoolExecutor
 
-base_path = "./"
-pcap_folder = "data/external_pcaps/vnat"
-processed_folder = os.path.join(base_path, "processed_vnat/")
-extract_feats_folder = os.path.join(base_path, "extract_feats")
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Process PCAP files with feature extraction.')
+parser.add_argument('--input', required=True, help='Input folder containing PCAP files')
+parser.add_argument('--output', required=True, help='Output folder for processed files')
+args = parser.parse_args()
 
+base_path = "./"
+pcap_folder = args.input
+processed_folder = args.output
+extract_feats_folder = os.path.join(base_path, "feature_extraction/pcaps")
+
+# Validate input folder
 if not os.path.exists(pcap_folder):
-    print(f"Error: PCAP folder '{pcap_folder}' does not exist.")
+    print(f"Error: Input PCAP folder '{pcap_folder}' does not exist.")
     exit(1)
 
+# Create output directory
 os.makedirs(processed_folder, exist_ok=True)
 
 def process_pcap(file_info):
@@ -57,6 +66,6 @@ for root, _, files in os.walk(pcap_folder):
         if file.endswith(".pcap"):
             pcap_files.append((root, file))
 with ThreadPoolExecutor(max_workers=7) as executor:
-    executor.map(process_pcap, pcap_files)
+    executor.map(process_pcap, pcap_files[:5])
 
 print("Processing completed.")
