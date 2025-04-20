@@ -20,7 +20,7 @@ import argparse
 from itertools import chain
 import subprocess
 import json
-
+import pdb
 # re-seed the generator
 #np.random.seed(1234)
 
@@ -79,10 +79,10 @@ def inter_pkt_time(list_data):
     if not list_data:
         return []
 
-    times = [x[0] for x in list_data if x]  # Extract timestamps safely
+    times = [x[0] for x in list_data if x]  # Safeguard against empty items
 
     if len(times) < 2:
-        print(f"Insufficient data for inter-packet times: {times}")
+        # print(f"Insufficient data for inter-packet times: {times}")
         return []
 
     return [next_elem - elem for elem, next_elem in zip(times, times[1:])]  # No circular wrap-around
@@ -304,123 +304,123 @@ def get_ft_labels(ALL_FEATURES):
     # TIME Features
     ALL_FEATURES.extend(intertimestats)
     prev = len(ALL_FEATURES)
-    print("Inter packet time stats: ", 0, prev-1) #0-11
+    # print("Inter packet time stats: ", 0, prev-1) #0-11
 
 
     prev = next_l
     ALL_FEATURES.extend(number_pkts)
     next_l = len(ALL_FEATURES)
-    print("Number of pkts: ", prev, next_l-1) 
+    # print("Number of pkts: ", prev, next_l-1) 
 
     prev = next_l
     ALL_FEATURES.extend(thirtypkts)
     next = len(ALL_FEATURES)
-    print("Thirty packets stats: ", prev, next_l-1) 
+    # print("Thirty packets stats: ", prev, next_l-1) 
 
     prev = next_l
     ALL_FEATURES.append(stdconc)
     next_l = len(ALL_FEATURES)
-    print("Std pkt conc: ", prev, next_l-1) 
+    # print("Std pkt conc: ", prev, next_l-1) 
 
     prev = next_l
     ALL_FEATURES.append(avgconc) #32
     next_l = len(ALL_FEATURES)
-    print("Avg pkt conc: ", prev, next_l-1)
+    # print("Avg pkt conc: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(avg_per_sec)
     next_l = len(ALL_FEATURES)
-    print("Avg per sec: ", prev, next_l-1)
+    # print("Avg per sec: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(std_per_sec)
     next_l = len(ALL_FEATURES)
-    print("Std per sec: ", prev, next_l-1)
+    # print("Std per sec: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(avg_order_in)
     next_l = len(ALL_FEATURES)
-    print("avg order in: ", prev, next_l-1)
+    # print("avg order in: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(avg_order_out)
     next_l = len(ALL_FEATURES)
-    print("avg order out: ", prev, next_l-1)
+    # print("avg order out: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(std_order_in)
     next_l = len(ALL_FEATURES)
-    print("Std order in: ", prev, next_l-1)
+    # print("Std order in: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(std_order_out)
     next_l = len(ALL_FEATURES)
-    print("std order out: ", prev, next_l-1)
+    # print("std order out: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(medconc)
     next_l = len(ALL_FEATURES)
-    print("medconc: ", prev, next_l-1)
+    # print("medconc: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(med_per_sec)
     next_l = len(ALL_FEATURES)
-    print("med per sec: ", prev, next_l)
+    # print("med per sec: ", prev, next_l)
 
     prev = next_l
     ALL_FEATURES.append(min_per_sec)
     next_l = len(ALL_FEATURES)
-    print("min per sec: ", prev, next_l-1)
+    # print("min per sec: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(max_per_sec)
     next_l = len(ALL_FEATURES)
-    print("max per sec: ", prev, next_l-1)
+    # print("max per sec: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(maxconc)
     next_l = len(ALL_FEATURES)
-    print("max conc: ", prev, next_l-1)
+    # print("max conc: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(perc_in)
     next_l = len(ALL_FEATURES)
-    print("% in: ", prev, next_l-1)
+    # print("% in: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(perc_out)
     next_l = len(ALL_FEATURES)
-    print("% out : ", prev, next_l-1)
+    # print("% out : ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.extend(alt_per_sec)
     next_l = len(ALL_FEATURES)
-    print("alt per sec: ", prev, next_l-1)
+    # print("alt per sec: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(sum(altconc))
     next_l = len(ALL_FEATURES)
-    print("sum alt conc: ", prev, next_l-1)
+    # print("sum alt conc: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(sum(alt_per_sec))
     next_l = len(ALL_FEATURES)
-    print("sum alt per conc: ", prev, next_l-1)
+    # print("sum alt per conc: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(sum(intertimestats))
     next_l = len(ALL_FEATURES)
-    print("sum inter time stats: ", prev, next_l-1)
+    # print("sum inter time stats: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(sum(timestats))
     next_l = len(ALL_FEATURES)
-    print("sum time stats: ", prev, next_l-1)
+    # print("sum time stats: ", prev, next_l-1)
 
     prev = next_l
     ALL_FEATURES.append(sum(number_pkts))
     next_l = len(ALL_FEATURES)
-    print("sum number of pkts: ", prev, next_l-1)
+    # print("sum number of pkts: ", prev, next_l-1)
 
    
     return
@@ -440,13 +440,13 @@ def count_fts(lst_fts):
             else:
                start = ind+1
                ind += len(lst_fts[x][0])
-            print(fnames[x], ":", start, "-", ind, ": ",len(lst_fts[x][0]))
+            #print(fnames[x], ":", start, "-", ind, ": ",len(lst_fts[x][0]))
             fts += lst_fts[x][0]
         else:
             ind += 1
-            print(fnames[x], ":", ind, ": 1")
+            #print(fnames[x], ":", ind, ": 1")
             fts += [lst_fts[x][0]]
-    print("Feat list len: ", len(fts))
+    #print("Feat list len: ", len(fts))
 
 
     return
@@ -480,7 +480,6 @@ def TOTAL_FEATURES(trace_data, max_size=150):
         alt_per_sec = alt_per_sec[:20]
 
     ALL_FEATURES.extend(intertimestats)
-    ALL_FEATURES.extend(timestats)
     ALL_FEATURES.extend(number_pkts)
     ALL_FEATURES.extend(thirtypkts)
     ALL_FEATURES.append(stdconc)
@@ -520,7 +519,7 @@ def get_features(pkts, conn_name, limit):
         features = TOTAL_FEATURES(pkts)
         return features
     else:
-        print("The connection", conn_name, "only have", str(len(pkts)), "packets. Ignored.")
+        # print("The connection", conn_name, "only have", str(len(pkts)), "packets. Ignored.")
         return False
 
 def chunks(l, n):
@@ -530,4 +529,3 @@ def chunks(l, n):
 
 def checkequal(lst):
     return lst[1:] == lst[:-1]
-
