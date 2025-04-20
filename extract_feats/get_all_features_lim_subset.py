@@ -211,16 +211,16 @@ class FeatureExtractor:
             return
         
         batch_df = pd.concat(data_dfs, ignore_index=True)
-        output_dir = f'content/full_unbiased_features/{set_name}/k_feature_batches'
+        output_dir = f'content/subset_features_03_18/{set_name}'
         os.makedirs(output_dir, exist_ok=True)
         
-        output_file = os.path.join(output_dir, f'features_batch_{batch_num}.csv')
+        output_file = os.path.join(output_dir, f'k_features_batch_{batch_num}.csv')
         batch_df.to_csv(output_file, index=False)
         print(f"Saved batch {batch_num} with {len(batch_df)} rows")
 
     def process_files_multithreaded(self, folders_path, set_name):
         """Process files in batches to limit memory usage"""
-        BATCH_SIZE = 20  # Number of folders to process in each batch
+        BATCH_SIZE = 10  # Number of folders to process in each batch
         batch_number = 0
         total_files = len(folders_path) * 2  # Each folder has 2 files
         total_batches = (len(folders_path) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -254,7 +254,9 @@ class FeatureExtractor:
                             if features is not None and len(features) > 0:
                                 # Create features DataFrame
                                 features_df = features[self.Features_names].copy()
+                                features_df['label'] = features['label']
                                 features_df['pcap_nb'] = str(folder).split('/')[-1]
+                                features_df['conn'] = features['conn']
                                 current_batch.append(features_df)
                             
                             file_pbar.update(1)
@@ -277,9 +279,9 @@ def main():
     # Initialize feature extractor and process file
     extractor = FeatureExtractor()
     
-    train_path = "content/full_unbiased_features/train"
-    test_path = "content/full_unbiased_features/test"
-    val_path = "content/full_unbiased_features/val"
+    train_path = "data/subset_03_18/train"
+    test_path = "data/subset_03_18/test"
+    val_path = "data/subset_03_18/val"
     
     train_folders = [os.path.join(train_path, folder) 
                     for folder in os.listdir(train_path) 
@@ -292,6 +294,7 @@ def main():
     val_folders = [os.path.join(val_path, folder) 
                     for folder in os.listdir(val_path) 
                     if os.path.isdir(os.path.join(val_path, folder))]
+                
     
     extractor.process_files_multithreaded(train_folders, "train")
     extractor.process_files_multithreaded(test_folders, "test")

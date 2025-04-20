@@ -16,8 +16,12 @@ def raw_ip_to_string(ip_addr):
     readable_ip = ".".join(str_list)
     return readable_ip
 
+# Add global variable
+device_ip = None
+
 def convert_to_conn_str(src_ip, src_prt, dst_ip, dst_prt):
-    if src_ip == "10.0.2.16" or src_ip == '10.0.2.15':
+    global device_ip
+    if src_ip == device_ip:
         conn_str = f'({src_ip}, {src_prt}, {dst_ip}, {dst_prt})'
     else:
         conn_str = f'({dst_ip}, {dst_prt}, {src_ip}, {src_prt})'
@@ -45,45 +49,100 @@ def get_conn_name(ssl_tp, conn_list):
     conn_str = convert_to_conn_str(ssl_tp[1], ssl_tp[2], ssl_tp[3], ssl_tp[4])
     return conn_list.get(conn_str, False)
 
+import dpkt
+
+def is_in_range(prt):
+    if prt == 443: # TLS
+        return True
+    
+    if prt > 50000 and prt <= 55000: # File transfer
+        return True
+    
+    if prt == 22: # SSH
+        return True
+
 def parse_pcap(pcap_file, conn_list):
+    global device_ip
     proxy_conn_pkt_dict = {}
     normal_conn_pkt_dict = {}
     curr_pkt = 0
-    pcaps = dpkt.pcap.Reader(open(pcap_file, 'rb'))
     first_ts = -1
 
-    for ts, pkt in pcaps:
-        curr_pkt += 1
-        if curr_pkt == 1:
-            first_ts = ts
-        try:
-            eth = dpkt.ethernet.Ethernet(pkt)
-        except dpkt.dpkt.NeedData:
-            print('Error happened at Packet #:', curr_pkt)
-            continue
-        if eth.type != dpkt.ethernet.ETH_TYPE_IP:
-            continue
-        ip = eth.data
-        if ip.p != dpkt.ip.IP_PROTO_TCP:
-            continue
-        l4_proto = ip.data
-        src_prt = int(l4_proto.sport)
-        dst_prt = int(l4_proto.dport)
-        if src_prt != 443 and dst_prt != 443:
-            continue
-        src_ip = raw_ip_to_string(ip.src)
-        dst_ip = raw_ip_to_string(ip.dst)
-        pkt_len = ip.len
-        ssl_rec = [ts - first_ts, src_ip, src_prt, dst_ip, dst_prt, pkt_len]
-        conn = get_conn_name(ssl_rec, conn_list)
-        if not conn:
-            continue
-        conn_pkt_dict = proxy_conn_pkt_dict if "proxy" in conn[0] else normal_conn_pkt_dict
-        if conn[0] in conn_pkt_dict:
-            conn_pkt_dict[conn[0]].append(conn + ssl_rec)
-        else:
-            conn_pkt_dict[conn[0]] = [conn + ssl_rec]
+    try:
+        with open(pcap_file, 'rb') as f:
+            pcaps = dpkt.pcap.Reader(f)
+            for ts, pkt in pcaps:
+                curr_pkt += 1
+                if curr_pkt == 1:
+                    first_ts = ts  # Capture the timestamp of the first packet
 
+                try:
+                    eth = dpkt.ethernet. Ethernet(pkt)
+                except dpkt.dpkt.NeedData:
+                    print(f"Malformed Ethernet frame at Packet #{curr_pkt}")
+                    continue
+
+                # Only process IP packets
+                if eth.type != dpkt.ethernet.ETH_TYPE_IP:
+                    continue
+
+                ip = eth.data
+                try:
+                    # Only process TCP packets
+                    if ip.p != dpkt.ip.IP_PROTO_TCP:
+                        continue
+                except AttributeError:
+                    print(f"Bogus IP packet detected at Packet #{curr_pkt}")
+                    continue
+
+                # Extract layer-4 (TCP) data
+                l4_proto = ip.data
+                try:
+                    src_prt = int(l4_proto.sport)
+                    dst_prt = int(l4_proto.dport)
+                except AttributeError:
+                    print(f"Missing TCP port information at Packet #{curr_pkt}")
+                    continue
+
+                # Extract IP addresses
+                src_ip = raw_ip_to_string(ip.src)
+                dst_ip = raw_ip_to_string(ip.dst)
+                
+                # Filter for packets involving port 443 (HTTPS)
+                if not is_in_range(src_prt) and not is_in_range(dst_prt):
+                    continue
+
+                # Set device_ip from the first HTTPS packet
+                if device_ip is None :
+                    device_ip = src_ip
+                    print(f"Detected device IP: {device_ip}")
+
+                pkt_len = ip.len
+
+                # Prepare SSL record
+                ssl_rec = [ts - first_ts, src_ip, src_prt, dst_ip, dst_prt, pkt_len]
+
+                # Identify connection name
+                conn = get_conn_name(ssl_rec, conn_list)
+                if not conn:
+                    continue
+                
+                # Determine connection type (proxy or normal)
+                conn_pkt_dict = proxy_conn_pkt_dict if "proxy" in conn[0] else normal_conn_pkt_dict
+
+                # Append packet details to the respective dictionary
+                if conn[0] in conn_pkt_dict:
+                    conn_pkt_dict[conn[0]].append(conn + ssl_rec)
+                else:
+                    conn_pkt_dict[conn[0]] = [conn + ssl_rec]
+
+    except FileNotFoundError:
+        print(f"Error: File '{pcap_file}' not found.")
+    except dpkt.dpkt.UnpackError as e:
+        print(f"Error unpacking pcap file: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+ 
     return proxy_conn_pkt_dict, normal_conn_pkt_dict
 
 def save_conn_to_csv(proxy_conn, normal_conn, folder):

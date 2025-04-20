@@ -10,6 +10,8 @@ from timeout_decorator.timeout_decorator import TimeoutError
 import xml.dom.minidom as xx
 import random
 import re
+import logging
+from exceptions import *
 
 global ANDROID_HOME
 global EMU_PATH
@@ -45,8 +47,6 @@ loginkwds = ["log in", "login", "sign in", "sign in with email", "already a memb
 global acckwds
 acckwds = ["continue as testhy", "fm_login_id", "username", "email", "phone number", "account no", "account number", "email_input_container", "session_key", "账号", "手机号", "邮箱"]
 global nonclickables
-nonclickables = ["com.android.chrome:id/home_button", "com.android.chrome:id/location_bar", "com.android.chrome:id/location_bar_status", "com.android.chrome:id/location_bar_status_icon", "com.android.chrome:id/url_bar", "com.android.chrome:id/toolbar_buttons", "com.android.chrome:id/tab_switcher_button", "com.android.chrome:id/menu_button_wrapper","com.android.chrome:id/menu_button", "com.android.chrome:id/toolbar_shadow", "com.android.chrome:id/translate_infobar_menu_button", "com.android.chrome:id/infobar_close_button"]
-
 search_kwds = []
 with open(SEARCH_KWDS, 'r') as f:
     for line in f.readlines():
@@ -70,7 +70,6 @@ def get_domains(basep):
     return domains[1:]
 
 def stop_emu(pid=None):
-    #x = os.popen('tasklist | findstr "qemu-system-x86_64.exe').read()
     emu_path = EMU_PATH
     x = os.popen('ps aux | grep "emulator"').read()
     print("Running processes: ", x)
@@ -146,7 +145,6 @@ def start_emu(pcapname, av='30', wipe_data=True):
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     print("Started emulator with PID: ",pid)
     os.system('ps aux | grep "emulator"')
-    #os.system('tasklist| findstr "emulator"')
     print("Sleeping 60 seconds for clean emulator startup....")
     os.chdir(curdr)
     if av == "31":
@@ -326,8 +324,6 @@ def get_actions(dumpf):
             if len(actionname) == 0:
                 actionname = elem.getAttribute("resource-id")
         uitype = elem.getAttribute("resource-id") #switch_btn
-        #if uitype == "com.android.chrome:id/url_bar":
-        #	url = actionname
         if uitype in nonclickables:
             continue
         checkable = elem.getAttribute("checkable")
@@ -338,29 +334,22 @@ def get_actions(dumpf):
         coordinates = get_coordinates(coordinates)
         if int(coordinates[1]) <= 280:
             continue
-        #print(coordinates)
         enabled = elem.getAttribute("enabled")
         focusable = elem.getAttribute("focusable")
-        ##print("NODE: ",actionname, "checkable: ", checkable," clickable: ",clickable," scrollable: ",scrollable," longclickable: ", longclickable)
         if len(actionname) >= 1 and not actionname in actiondt:
             if (checkable == "true" or clickable == "true" or scrollable == "true" or longclickable == "true") and enabled == "true":
-            ##print("Adding: ",actionname," to action list")
                 actiondt[actionname] = {"xy": coordinates, "uitype": uitype, "checkable": checkable, "clickable": clickable, "scrollable": scrollable, "longclickable": longclickable, "enabled": enabled, "focusable": focusable}
-                #print("NODE: ",actionname, "checkable: ", checkable," clickable: ",clickable," scrollable: ",scrollable," longclickable: ", longclickable)
 
     print("Finish getting", len(actiondt), "actions......")
     return actiondt
 
 def sort_actions(actiondt):
-    ##print(actiondt)
     # click/checkwords: [xx,yy,xx_end,yy_end]
     clickables = dict()
-    #check = dict()
     # clickable & enabled
     for k, v in actiondt.items():
         clickable = v["clickable"]
         enabled = v["enabled"]
-        #checkable = v["checkable"]
         xx, yy, xxe, yye = v['xy']
         buttontype = v["uitype"]
         if clickable and enabled:
@@ -372,13 +361,11 @@ def choose_action(clickables):
     click_order = []
 
     for k, v in clickables.items():
-        #print("Clickable key: ", k)
         if is_in_kwds(k): # or "button_next" in v[-1]:
             print("Has click keywords")
             print("(",v,",",k,")")
             click_order += [(v, k)]
 
-    #click_order.sort(key=lambda x: (x[0][0],x[1][1]))
     print("Click order: ", click_order)
     return click_order
 
@@ -390,7 +377,6 @@ def perform_click(x, y, xxe, yye, acttype):
         execute_scroll(x, y, xxe, yye)
         return True
     else:
-        #if not (x in nulllst and y in nulllst):
         if not (x in nulllst and y in nulllst and xxe in nulllst and yye in nulllst):
             print("Tapping (x,y): ",x,y)
             execute_click_middle(x, y, xxe, yye)
@@ -435,7 +421,6 @@ def click_single_clkkwd(dumpf, result_needed=False, kwds=None, origin="text", oc
     occurrence = 0
     for elem in nodes:
         text = elem.getAttribute(origin)
-        #print(text)
         coordinates = elem.getAttribute("bounds")
         x, y, xxe, yye = get_coordinates(coordinates)
         if (kwds == None and is_in_kwds(text)) or (kwds and text.lower() == kwds):
@@ -496,13 +481,11 @@ def access_domain(domain):
     execute_click(x, y)
     time.sleep(2)
     enter_text('https://'+domain+'/')
-    #time.sleep(2)
     execute_enter()
 
 def is_in_kwds(k):
     word = k.lower()
     for keywd in clickkwds:
-        #print(word, "in", keywd, "?")
         if word == keywd: #or word in keywd:
             return True
     return False
@@ -518,9 +501,7 @@ def setup_chrome():
     for step_no in range(2):
         dumpf = get_uidump()
         actiondt = get_actions(dumpf)
-        #print(len(actiondt))
         for k, v in actiondt.items():
-            #print(k)
             if is_in_kwds(k):
                 print("Trigger keywords click action. The kwd is", k)
                 x, y, xxe, yye = v['xy']

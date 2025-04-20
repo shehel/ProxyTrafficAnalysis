@@ -396,6 +396,8 @@ class NetworkFeatureExtractor:
                 csv_files.append((str(path), 'background'))
             elif path.name == 'relayed_conn_labeled.csv':
                 csv_files.append((str(path), 'relayed'))
+            elif path.name == 'normal_conn.csv':
+                csv_files.append((str(path), 'background'))
         return csv_files
         
     def _process_single_file(self, file_info: Tuple[str, str]) -> Dict:
@@ -651,10 +653,10 @@ if __name__ == "__main__":
             sys.exit(1)
     
     # Process all CSV files
-    print(f"\nProcessing files from: {input_dir}")
+    print(f"\nProcessing files from: {input_path}")
     print(f"Saving results to: {output_dir}")
     features_df, metadata_df = extractor.process_csv_files(str(input_dir), max_workers=args.workers)
-    
+
     # Print summary statistics
     total_connections = len(features_df)
     if total_connections == 0:
@@ -666,17 +668,13 @@ if __name__ == "__main__":
     
     print("\nNetwork Traffic Analysis Summary")
     print("================================")
-    print(f"Input Directory: {input_dir}")
+    print(f"Input Directory: {input_path}")
     print(f"Output Directory: {output_dir}")
     print(f"\nTotal Connections Analyzed: {total_connections:,}")
     print(f"Background Connections: {background_count:,} ({background_count/total_connections*100:.1f}%)")
     print(f"Relayed Connections: {relayed_count:,} ({relayed_count/total_connections*100:.1f}%)")
     
     print("\nData Sources:", len(metadata_df['data_source'].unique()))
-    print("Unique Providers:", len(metadata_df['provider'].unique()))
-    
-    print("\nTop 5 Providers by Connection Count:")
-    print(metadata_df['provider'].value_counts().head().to_string())
     
     print("\nConnections by Data Source:")
     print(metadata_df['data_source'].value_counts().to_string())

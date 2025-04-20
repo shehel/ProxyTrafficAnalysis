@@ -2,9 +2,9 @@ import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-base_path = "/Users/mounarabhi/Desktop/ProxyTrafficAnalysis"
-pcap_folder = "/Users/mounarabhi/Desktop/ProxyTrafficAnalysis/data/pcaps_new"
-processed_folder = os.path.join(base_path, "data/processed_new")
+base_path = "./"
+pcap_folder = "data/external_pcaps/vnat"
+processed_folder = os.path.join(base_path, "processed_vnat/")
 extract_feats_folder = os.path.join(base_path, "extract_feats")
 
 if not os.path.exists(pcap_folder):
@@ -34,12 +34,12 @@ def process_pcap(file_info):
         # Commands to execute
         commands = [
             f"cp {pcap_path} {output_folder}/mixed.pcap",
-            f"cd {output_folder} && zeek -C -r mixed.pcap LogAscii::use_json=T",
+            f"cd {output_folder} && zeek -C -r mixed.pcap 'LogAscii::use_json=T' local",
             f"python3 {os.path.join(extract_feats_folder, 'extract_domains.py')} --folder {output_folder}",
             f"python3 {os.path.join(extract_feats_folder, 'split_connections.py')} --folder {output_folder}",
-            f"sh {os.path.join(extract_feats_folder, 'tshark.sh')} {pcap_path} {output_folder}", 
-            f"python3 {os.path.join(extract_feats_folder, 'get_labeled_conn.py')} --folder_path {output_folder}",
-            f"rm {output_folder}/mixed.pcap",
+            # f"sh {os.path.join(extract_feats_folder, 'tshark.sh')} {pcap_path} {output_folder}", 
+            # f"python3 {os.path.join(extract_feats_folder, 'get_labeled_conn.py')} --folder_path {output_folder}",
+            # f"rm {output_folder}/mixed.pcap",
         ]
     
         for command in commands:
