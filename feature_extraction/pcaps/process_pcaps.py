@@ -37,9 +37,9 @@ def process_pcap(file_info):
             f"cd {output_folder} && zeek -C -r mixed.pcap 'LogAscii::use_json=T' local",
             f"python3 {os.path.join(extract_feats_folder, 'extract_domains.py')} --folder {output_folder}",
             f"python3 {os.path.join(extract_feats_folder, 'split_connections.py')} --folder {output_folder}",
-            # f"sh {os.path.join(extract_feats_folder, 'tshark.sh')} {pcap_path} {output_folder}", 
-            # f"python3 {os.path.join(extract_feats_folder, 'get_labeled_conn.py')} --folder_path {output_folder}",
-            # f"rm {output_folder}/mixed.pcap",
+            f"sh {os.path.join(extract_feats_folder, 'tshark.sh')} {pcap_path} {output_folder}", 
+            f"python3 {os.path.join(extract_feats_folder, 'get_labeled_conn.py')} --folder_path {output_folder}",
+            f"rm {output_folder}/mixed.pcap",
         ]
     
         for command in commands:

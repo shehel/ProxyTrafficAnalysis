@@ -3,9 +3,9 @@
 """
 Modified Feature Extractor for 3-way Classification
 """
-from extract_features import get_features
-from host_features_limited import extract_features_by_conn
-from rtt_tls_feature import get_rtt_feature
+from extract_feats.traffic_analysis.extract_features import get_features
+from feature_extraction.traffic_analysis.host_features_limited import extract_features_by_conn
+from feature_extraction.traffic_analysis.rtt_tls_feature import get_rtt_feature
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import pandas as pd

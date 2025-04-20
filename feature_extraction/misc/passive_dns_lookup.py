@@ -97,7 +97,8 @@ def discover_related_domains(seed_domains, max_iterations=5, limit_per_domain=5)
 
 if __name__ == "__main__":
     # Seed domains to start with
-    seed_domains = ["perr.l-err.biz", "perr.l-agent.me", "client.earnapp.com", "clientsdk.lum-sdk.io", "proxyjs.luminatinet.com", "earnapp.com", "lumtest.com", "perr.lum-sdk.io"]
+    seed_domains = ["perr.l-err.biz", "perr.l-agent.me", "client.earnapp.com", "clientsdk.lum-sdk.io", 
+                    "proxyjs.luminatinet.com", "earnapp.com", "lumtest.com", "perr.lum-sdk.io"]
 
     # Discover related domains
     related_domains = discover_related_domains(seed_domains, max_iterations=3, limit_per_domain=5)

@@ -20,7 +20,10 @@ if not os.path.exists(pcap_path):
 
 # Get orig name of file 
 filename = os.path.basename(pcap_path)[:-5]
-folder_name = f"data/processed/bandwidthsharing/{filename}"
+folder_name = f"data/processed/{filename}"
+
+# base path of scripts
+base_path = "feature_extraction/pcaps"
 
 # Ensure the folder exists
 os.makedirs(folder_name, exist_ok=True)
@@ -28,12 +31,12 @@ os.makedirs(folder_name, exist_ok=True)
 # Commands to execute
 commands = [
     f"cp {pcap_path} {folder_name}/mixed.pcap",
-    f"zeek -C -r {folder_name}/mixed.pcap /"LogAscii::use_json=T",
-    f"python extract_feats/rename_logs.py --folder {folder_name}",
-    f"python extract_feats/extract_domains.py --folder {folder_name}",
-    f"python extract_feats/split_connections.py --folder {folder_name}",
-    # f"sh extract_feats/tshark.sh {pcap_path} {folder_name}",
-    # f"python extract_feats/get_labeled_conn.py --folder_path {folder_name}"
+    f"zeek -C -r {folder_name}/mixed.pcap \"LogAscii::use_json=T\" local",
+    # f"python {base_path}/rename_logs.py --folder {folder_name}",
+    f"python {base_path}/extract_domains.py --folder {folder_name}",
+    f"python {base_path}/split_connections.py --folder {folder_name}",
+    f"sh {base_path}/tshark.sh {pcap_path} {folder_name}",
+    f"python {base_path}/get_labeled_conn.py --folder_path {folder_name}"
     f"rm {folder_name}/mixed.pcap"
 ]
 
