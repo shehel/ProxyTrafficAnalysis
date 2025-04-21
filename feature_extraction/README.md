@@ -86,13 +86,35 @@ Each CSV contains the following correlation metrics:
 
 ## 3. Traffic Analysis Features
 
-*Coming soon*
+This stage extracts detailed traffic analysis features from processed connections, including statistical metrics, packet timing, and behavioral patterns.
 
-### Prerequisites
+There are two scripts available:
 
-### Usage
+1. Basic Feature Extraction (get_all_features.py):
+   ```bash
+   python traffic_analysis/get_all_features.py --folder_path /path/to/pcaps \
+   --pkt_limit 50 \
+   --output_dir /path/to/output
+   ```
+   Parameters:
+   - `--folder_path`: Path to the folder containing PCAP files (required).
+   - `--pkt_limit`: Maximum number of packets to analyze per connection (default: 50).
+   - `--output_dir`: Directory where results will be saved (required).
 
-### Output
+2. Advanced 3-Way Classification Feature Extraction (get_all_features_lim_subset_3way.py):
+   ```bash
+   python traffic_analysis/get_all_features_lim_subset_3way.py --folder_path /path/to/pcaps \
+   --pkt_limit 20 \
+   --output_dir /path/to/output \
+   --json_path feature_extraction/background_distributions.json \
+   [--no_batching]
+   ```
+   Parameters:
+   - `--folder_path`: Path to the folder containing PCAP files (required).
+   - `--pkt_limit`: Maximum number of packets to analyze per connection (default: 20).
+   - `--output_dir`: Directory where results will be saved (required).
+   - `--json_path`: Path to the background distributions JSON file (default: feature_extraction/background_distributions.json).
+   - `--no_batching`: Optional flag to process all files without batching.
 
 ## 4. SLT (Shining Light into the Tunnel) Features
 
