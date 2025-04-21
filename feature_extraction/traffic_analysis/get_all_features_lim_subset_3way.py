@@ -3,9 +3,9 @@
 """
 Modified Feature Extractor for 3-way Classification
 """
-from extract_feats.traffic_analysis.extract_features import get_features
-from feature_extraction.traffic_analysis.host_features_limited import extract_features_by_conn
-from feature_extraction.traffic_analysis.rtt_tls_feature import get_rtt_feature
+from extract_features import get_features
+from host_features_limited import extract_features_by_conn
+from rtt_tls_feature import get_rtt_feature
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import pandas as pd
@@ -37,7 +37,6 @@ class FeatureExtractor:
             "max_per_sec", "maxconc", "perc_in", "perc_out", "sum_altconc", "sum_alt_per_sec",
             "sum_number_pkts", "sum_intertimestats"
         ]
-        pdb.set_trace()
         self.Features_names.extend([f"altconc_{i+1}" for i in range(20)])
         self.Features_names.extend([f"alt_per_sec_{i+1}" for i in range(20)])
         self.Features_names.extend([f"conc_{i+1}" for i in range(60)])
@@ -70,45 +69,38 @@ class FeatureExtractor:
         try:
             features = {}
             df = pd.read_csv(file_path)
-            if 1 == 1:
-                if file_type == 'relayed':
-                    df['ts_relative'] = pd.to_numeric(df['ts_relative'], errors='coerce')
-                    df['pkt_len'] = pd.to_numeric(df['pkt_len'], errors='coerce')
-                    for conn_id, conn_data in df.groupby(["conn"]):
-                        conn_data = conn_data.sort_values('ts_relative')
-                        if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
-                            conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
-                            conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
-                            new_length = np.random.choice(self.empirical_packet_lengths)
-                            conn_data.at[3, 'pkt_len'] = new_length
-                                                    
-                        ########ATTACK#######
-                        # conn_data.reset_index(drop=True, inplace=True)
-                        # new_timing = np.random.lognormal(
-                        #     mean=self.background_timing_distribution['mean'],
-                        #     sigma=self.background_timing_distribution['std']
-                        # )
-        
-                        # # Calculate current timing difference
-                        # old_timing = conn_data.loc[3]['ts_relative'] - conn_data.loc[2]['ts_relative']
-        
-                        # # Calculate and apply timing adjustment
-                        # timing_adjustment = old_timing - new_timing
-                        # conn_data.loc[3:, 'ts_relative'] = conn_data.loc[3:, 'ts_relative'] - timing_adjustment
-                        #######################                
-                        df.drop(df[df['conn'] == conn_id[0]].index, inplace=True)
-                        df = pd.concat([df, conn_data], ignore_index=True)
+            if file_type == 'relayed':
+                df['ts_relative'] = pd.to_numeric(df['ts_relative'], errors='coerce')
+                df['pkt_len'] = pd.to_numeric(df['pkt_len'], errors='coerce')
+                for conn_id, conn_data in df.groupby(["conn"]):
+                    conn_data = conn_data.sort_values('ts_relative')
+                    if len(conn_data) > 3 and conn_data.iloc[3]['pkt_len'] > 1300:
+                        conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
+                        conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
+                        new_length = np.random.choice(self.empirical_packet_lengths)
+                        conn_data.at[3, 'pkt_len'] = new_length
+                                                
+                    ########ATTACK#######
+                    conn_data.reset_index(drop=True, inplace=True)
+                    new_timing = np.random.lognormal(
+                        mean=self.background_timing_distribution['mean'],
+                        sigma=self.background_timing_distribution['std']
+                    )
+    
+                    # Calculate current timing difference
+                    old_timing = conn_data.loc[3]['ts_relative'] - conn_data.loc[2]['ts_relative']
+    
+                    # Calculate and apply timing adjustment
+                    timing_adjustment = old_timing - new_timing
+                    conn_data.loc[3:, 'ts_relative'] = conn_data.loc[3:, 'ts_relative'] - timing_adjustment
+                    
+                    #######################                
+                    df.drop(df[df['conn'] == conn_id[0]].index, inplace=True)
+                    df = pd.concat([df, conn_data], ignore_index=True)
                         
 
-
-
-                    
-
-                # if file_type == 'relayed':
-                #     pdb.set_trace()
                 print("df_shape",df.shape)
                 all_pkts = [df.columns.tolist()] + df.astype(str).values.tolist()
-                #all_pkts = list(csv.reader(f, delimiter=','))
                 curr_conn = ''
                 conn_pkts = []
 
@@ -116,45 +108,12 @@ class FeatureExtractor:
                     # If the first row is a header, skip it
                     if idx == 0:
                         continue
-
+                    
                     conn_name = pkt[0]
-
                     # If we detect a new connection, process the old one first
                     if conn_name != curr_conn:
                         # If we had a previous connection with enough packets
-                        
-                            #conn_data = conn_data.drop(conn_data.index[3]).reset_index(drop=True)
-                            #conn_data = conn_data.drop(conn_data.index[4]).reset_index(drop=True)
-                            #new_length = np.random.choice(self.empirical_packet_lengths)
-                            #conn_data.at[3, 'pkt_len'] = new_length
-
-
                         if conn_pkts and len(conn_pkts) >= self.pkts_limit:
-                            # Apply timing adjustment for packets after index 3
-                            # if file_type == 'relayed':
-                            #     if int(conn_pkts[3][7]) > 1300:
-                            #     # Drop packets at index 3 and 4
-                            #         conn_pkts.pop(3)
-                            #         conn_pkts.pop(4)  # Note: After first pop, index 4 becomes index 3
-                                    
-                            #     # Insert a new packet at index 3 with randomized length
-                            #         new_length = np.random.choice(self.empirical_packet_lengths)
-                            #         conn_pkts[3][7] = str(new_length)  # Set new length
-
-                                # if len(conn_pkts) > 3:
-                                #     new_timing = np.random.lognormal(
-                                #         mean=self.background_timing_distribution['mean'],
-                                #         sigma=self.background_timing_distribution['std']
-                                #     )
-                                    
-                                #     # Calculate current timing difference
-                                #     old_timing = float(conn_pkts[3][2]) - float(conn_pkts[2][2])
-                                    
-                                #     # Calculate and apply timing adjustment
-                                #     timing_adjustment = old_timing - new_timing
-                                #     for i in range(3, len(conn_pkts)):
-                                #         conn_pkts[i][2] = str(float(conn_pkts[i][2]) - timing_adjustment)
-
                             # Now compute features
                             conn_features = get_features(conn_pkts[:self.comp_pkts_limit], curr_conn, limit=0)
                             try:
@@ -176,30 +135,6 @@ class FeatureExtractor:
 
                 # Process final connection
                 if conn_pkts and len(conn_pkts) >= self.pkts_limit:
-                    # Same drop & randomization logic as above
-                    # if file_type == 'relayed':
-                    #     if int(conn_pkts[3][7]) > 1300:
-                    #     # Drop packets at index 3 and 4
-                    #         conn_pkts.pop(3)
-                    #         conn_pkts.pop(4)  # Note: After first pop, index 4 becomes index 3
-                            
-                    #     # Insert a new packet at index 3 with randomized length
-                    #         new_length = np.random.choice(self.empirical_packet_lengths)
-                    #         conn_pkts[3][7] = str(new_length)  # Set new length
-                        # if len(conn_pkts) > 3: 
-                        #     new_timing = np.random.lognormal(
-                        #         mean=self.background_timing_distribution['mean'],
-                        #         sigma=self.background_timing_distribution['std']
-                        #     )
-                            
-                        #     # Calculate current timing difference
-                        #     old_timing = float(conn_pkts[3][2]) - float(conn_pkts[2][2])
-                            
-                        #     # Calculate and apply timing adjustment
-                        #     timing_adjustment = old_timing - new_timing
-                        #     for i in range(3, len(conn_pkts)):
-                        #         conn_pkts[i][2] = str(float(conn_pkts[i][2]) - timing_adjustment)
-
                     # Get features and save them
                     conn_features = get_features(conn_pkts[:self.comp_pkts_limit], curr_conn, limit=0)
                     try:
@@ -255,23 +190,21 @@ class FeatureExtractor:
 
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
-            pdb.set_trace()
             return pd.DataFrame()  # Return empty DataFrame on error
 
-    def save_batch(self, data_dfs, set_name, batch_num):
+    def save_batch(self, data_dfs, set_name, batch_num, output_dir):
         """Save a batch of data to CSV"""
         if not data_dfs:
             return
         
         batch_df = pd.concat(data_dfs, ignore_index=True)
-        output_dir = f'data/feats/ds4_3way/{set_name}'
         os.makedirs(output_dir, exist_ok=True)
         
         output_file = os.path.join(output_dir, f'k_features_batch_{batch_num}.csv')
         batch_df.to_csv(output_file, index=False)
         print(f"Saved batch {batch_num} with {len(batch_df)} rows")
 
-    def process_files_multithreaded(self, folders_path, set_name):
+    def process_files_multithreaded(self, folders_path, output_dir):
         """Process files in batches to limit memory usage"""
         BATCH_SIZE = 10  # Number of folders to process in each batch
         batch_number = 0
@@ -279,13 +212,12 @@ class FeatureExtractor:
         total_batches = (len(folders_path) + BATCH_SIZE - 1) // BATCH_SIZE
         
         # Create output directory if it doesn't exist
-        output_dir = f'data/feats/ds4_3way/{set_name}'
         os.makedirs(output_dir, exist_ok=True)
         
-        print(f"\nProcessing {total_files} files for {set_name} set...")
+        print(f"\nProcessing {total_files} files...")
         
         # Process folders in batches
-        with tqdm.tqdm(total=total_batches, desc=f"Total batches ({set_name})") as batch_pbar:
+        with tqdm.tqdm(total=total_batches, desc=f"Total batches") as batch_pbar:
             for batch_start in range(0, len(folders_path), BATCH_SIZE):
                 batch_folders = folders_path[batch_start:batch_start + BATCH_SIZE]
                 current_batch = []
@@ -345,7 +277,7 @@ class FeatureExtractor:
                 
                 # Save current batch if not empty
                 if current_batch:
-                    self.save_batch(current_batch, set_name, batch_number)
+                    self.save_batch(current_batch, "features", batch_number, output_dir)
                     batch_number += 1
                 
                 # Update batch progress
@@ -357,15 +289,14 @@ class FeatureExtractor:
                 import gc
                 gc.collect()
 
-    def process_files_without_batching(self, folders_path, set_name):
+    def process_files_without_batching(self, folders_path, output_dir):
         """Process all files without batching to avoid potential issues"""
         all_features = []
         
         # Create output directory if it doesn't exist
-        output_dir = f'data/feats/ds11v2rq2_3way_20pkts_cleanv3/{set_name}'
         os.makedirs(output_dir, exist_ok=True)
         
-        print(f"\nProcessing files for {set_name} set...")
+        print(f"\nProcessing files...")
         
         with tqdm.tqdm(total=len(folders_path), desc=f"Processing folders") as folder_pbar:
             for folder in folders_path:
@@ -401,7 +332,7 @@ class FeatureExtractor:
         # Save all features to a single file
         if all_features:
             all_features_df = pd.concat(all_features, ignore_index=True)
-            output_file = os.path.join(output_dir, f'k_features.parquet')
+            output_file = os.path.join(output_dir, 'k_features.parquet')
             all_features_df.to_parquet(output_file, index=False)
             print(f"Saved all features with {len(all_features_df)} rows to {output_file}")
         else:
@@ -439,7 +370,6 @@ def calculate_rtt(conn_pkts: List[List[str]]) -> float:
                     
         
     except Exception as e:
-        pdb.set_trace()
         raise ValueError(f"RTT calculation failed: {str(e)}")
 
 
@@ -487,8 +417,6 @@ def calculate_rttv2(conn_pkts: List[List[str]]) -> float:
         
         if rtt_tcp is None or rtt_tls is None:
             return None
-            #raise ValueError("Could not calculate both RTT TCP and RTT TLS")
-            #exit(1)
             
         return rtt_tls - rtt_tcp
         
@@ -497,67 +425,35 @@ def calculate_rttv2(conn_pkts: List[List[str]]) -> float:
 
 
 def main():
-    json_path = 'data/feats/data/train/background_distributions.json'
-    # Initialize feature extractor and process file
-    extractor = FeatureExtractor(json_path)
-
-    root_path = '/home/shehel/Documents/pcaps_full/' 
-    train_path = "data/processed/data/train"
-    test_path = "data/processed/data/test"
-    val_path = "data/processed/data/val"
+    parser = argparse.ArgumentParser(description='Extract traffic analysis features for 3-way classification')
+    parser.add_argument('--folder_path', type=str, required=True,
+                      help='Path to the folder containing PCAP files')
+    parser.add_argument('--pkt_limit', type=int, default=20,
+                      help='Packet limit for analysis (default: 20)')
+    parser.add_argument('--output_dir', type=str, required=True,
+                      help='Directory where results will be saved')
+    parser.add_argument('--json_path', type=str, default='feature_extraction/background_distributions.json',
+                      help='Path to background distributions JSON file')
+    parser.add_argument('--no_batching', action='store_true',
+                      help='Process all files without batching')
     
-    df_load = True  # Set to True to load folders from dataframe, False to use os.listdir
+    args = parser.parse_args()
     
-    if df_load:
-        # Load dataframes containing folder names
-        try:
-            train_df = pd.read_csv(root_path+"ds_11_train.csv")
-            test_df = pd.read_csv(root_path+'ds_11_test.csv')
-            val_df = pd.read_csv(root_path+'ds_11_val.csv')
-            
-            # Assuming the column with folder names is called 'folder_name'
-            # Adjust the column name if needed
-            folder_column = 'Folder Name'
-            
-            # Create full paths by joining root directory with folder names from dataframe
-            train_folders = [os.path.join(root_path, folder) 
-                            for folder in train_df[folder_column].tolist() 
-                            if os.path.isdir(os.path.join(root_path, folder))]
-            
-            test_folders = [os.path.join(root_path, folder) 
-                            for folder in test_df[folder_column].tolist() 
-                            if os.path.isdir(os.path.join(root_path, folder))]
-            
-            val_folders = [os.path.join(root_path, folder) 
-                            for folder in val_df[folder_column].tolist() 
-                            if os.path.isdir(os.path.join(root_path, folder))]
-            
-            print(f"Loaded {len(train_folders)} train folders, {len(test_folders)} test folders, "
-                  f"and {len(val_folders)} val folders from dataframes")
-            
-        except FileNotFoundError as e:
-            print(f"Error loading folder dataframes: {e}")
-            print("Falling back to using directory listing...")
-            df_load = False
-
+    # Initialize feature extractor
+    extractor = FeatureExtractor(args.json_path)
+    
+    # Get all subfolders in the input folder
+    folders = [os.path.join(args.folder_path, folder) 
+              for folder in os.listdir(args.folder_path) 
+              if os.path.isdir(os.path.join(args.folder_path, folder))]
+    
+    # Process the input folder
+    print(f"Processing folder: {args.folder_path}")
+    if args.no_batching:
+        extractor.process_files_without_batching(folders, args.output_dir)
     else:
-        train_folders = [os.path.join(train_path, folder) 
-                        for folder in os.listdir(train_path) 
-                        if os.path.isdir(os.path.join(train_path, folder))]
-        
-        test_folders = [os.path.join(test_path, folder) 
-                        for folder in os.listdir(test_path) 
-                        if os.path.isdir(os.path.join(test_path, folder))]
-
-        val_folders = [os.path.join(val_path, folder) 
-                        for folder in os.listdir(val_path) 
-                        if os.path.isdir(os.path.join(val_path, folder))]
-    #test_folders = ['/home/shehel/Documents/pcaps_full/mixed_03_01_2025_17_53_58_low']
-    # Option 2: Use simplified approach without batching
-    extractor.process_files_without_batching(train_folders[:], "train")
-    #extractor.process_files_without_batching(val_folders[:], "val")
-    #extractor.process_files_without_batching(test_folders[:], "test")
-
+        extractor.process_files_multithreaded(folders, args.output_dir)
 
 if __name__ == "__main__":
     main()
+
