@@ -1,0 +1,5 @@
+go.mnaspm.com - Category: {}, Combined Score: 1, Top Threats: Fortinet: malicious
+neutraljump.xyz - Category: {}, Combined Score: 2, Top Threats: alphaMountain.ai: suspicious, Forcepoint ThreatSeeker: suspicious
+investors.emera.com - Category: {}, Combined Score: 1, Top Threats: Quttera: suspicious
+zoroalteedrich.net - Category: {}, Combined Score: 13, Top Threats: alphaMountain.ai: malicious, BitDefender: malicious, CRDF: malicious
+goldberg-tattoo.de - Category: {}, Combined Score: 1, Top Threats: Bfore.Ai PreCrime: malicious
