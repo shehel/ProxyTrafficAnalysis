@@ -5,17 +5,17 @@ Created on Wed Nov 27 15:05:12 2024
 
 @author: mounarabhi
 """
-from extract_feats.traffic_analysis.extract_features import get_features
-from feature_extraction.traffic_analysis.host_features_limited import extract_features_by_conn
-from feature_extraction.traffic_analysis.rtt_tls_feature import get_rtt_feature
+from extract_features import get_features
+from host_features_limited import extract_features_by_conn
+from rtt_tls_feature import get_rtt_feature
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import pandas as pd
+import pdb
 import argparse
 import os
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, Tuple
 import warnings
 import numpy as np
 import json
@@ -51,7 +51,7 @@ class FeatureExtractor:
         # Load empirical samples
         self.load_empirical_samples()
     
-    def load_empirical_samples(self, json_path='background_distributions.json'):
+    def load_empirical_samples(self, json_path='feature_extraction/background_distributions.json'):
         """Load empirical packet length samples from JSON file"""
         try:
             with open(json_path, 'r') as f:
@@ -77,7 +77,6 @@ class FeatureExtractor:
                         continue
 
                     conn_name = pkt[0]
-
                     # If we detect a new connection, process the old one first
                     if conn_name != curr_conn:
                         # If we had a previous connection with enough packets
@@ -115,7 +114,7 @@ class FeatureExtractor:
                     else:
                         # Same connection, just append
                         conn_pkts.append(pkt)
-
+                
                 # Process final connection
                 if conn_pkts and len(conn_pkts) >= pkt_limit:
                     # Same drop & randomization logic as above
@@ -205,36 +204,35 @@ class FeatureExtractor:
 
         return features_df, metadata_df
 
-    def save_batch(self, data_dfs, set_name, batch_num):
+    def save_batch(self, data_dfs, batch_num, output_dir):
         """Save a batch of data to CSV"""
         if not data_dfs:
             return
         
         batch_df = pd.concat(data_dfs, ignore_index=True)
-        output_dir = f'content/full_unbiased_features/{set_name}/k_feature_batches'
         os.makedirs(output_dir, exist_ok=True)
         
         output_file = os.path.join(output_dir, f'features_batch_{batch_num}.csv')
         batch_df.to_csv(output_file, index=False)
         print(f"Saved batch {batch_num} with {len(batch_df)} rows")
 
-    def process_files_multithreaded(self, folders_path, set_name):
+    def process_files_multithreaded(self, folders_path, output_dir):
         """Process files in batches to limit memory usage"""
         BATCH_SIZE = 20  # Number of folders to process in each batch
         batch_number = 0
         total_files = len(folders_path) * 2  # Each folder has 2 files
         total_batches = (len(folders_path) + BATCH_SIZE - 1) // BATCH_SIZE
         
-        print(f"\nProcessing {total_files} files for {set_name} set...")
+        print(f"\nProcessing {total_files} files for {folders_path} set...")
         
         # Process folders in batches
-        with tqdm.tqdm(total=total_batches, desc=f"Total batches ({set_name})") as batch_pbar:
+        with tqdm.tqdm(total=total_batches, desc=f"Total batches ({folders_path})") as batch_pbar:
             for batch_start in range(0, len(folders_path), BATCH_SIZE):
                 batch_folders = folders_path[batch_start:batch_start + BATCH_SIZE]
                 current_batch = []
                 futures = []
                 
-                with ThreadPoolExecutor() as executor:
+                with ThreadPoolExecutor(max_workers=1) as executor:
                     # Submit only current batch of jobs
                     for folder in batch_folders:
                         relayed_path = os.path.join(folder, "relayed_conn_labeled.csv")
@@ -253,7 +251,8 @@ class FeatureExtractor:
                             
                             if features is not None and len(features) > 0:
                                 # Create features DataFrame
-                                features_df = features[self.Features_names].copy()
+                                output_columns = self.Features_names + ['label']
+                                features_df = features[output_columns].copy()
                                 features_df['pcap_nb'] = str(folder).split('/')[-1]
                                 current_batch.append(features_df)
                             
@@ -261,7 +260,7 @@ class FeatureExtractor:
                 
                 # Save current batch
                 if current_batch:
-                    self.save_batch(current_batch, set_name, batch_number)
+                    self.save_batch(current_batch,batch_number, output_dir)
                     batch_number += 1
                 
                 # Update batch progress
@@ -274,29 +273,30 @@ class FeatureExtractor:
                 gc.collect()
 
 def main():
-    # Initialize feature extractor and process file
+    parser = argparse.ArgumentParser(description='Extract traffic analysis features from PCAP files')
+    parser.add_argument('--folder_path', type=str, required=True,
+                      help='Path to the folder containing PCAP files')
+    parser.add_argument('--pkt_limit', type=int, default=50,
+                      help='Packet limit for analysis (default: 50)')
+    parser.add_argument('--output_dir', type=str, required=True,
+                      help='Directory where results will be saved')
+    
+    args = parser.parse_args()
+    
+    # Initialize feature extractor
     extractor = FeatureExtractor()
     
-    train_path = "content/full_unbiased_features/train"
-    test_path = "content/full_unbiased_features/test"
-    val_path = "content/full_unbiased_features/val"
+    # Get all subfolders in the input folder
+    folders = [os.path.join(args.folder_path, folder) 
+              for folder in os.listdir(args.folder_path) 
+              if os.path.isdir(os.path.join(args.folder_path, folder))]
     
-    train_folders = [os.path.join(train_path, folder) 
-                    for folder in os.listdir(train_path) 
-                    if os.path.isdir(os.path.join(train_path, folder))]
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
     
-    test_folders = [os.path.join(test_path, folder) 
-                    for folder in os.listdir(test_path) 
-                    if os.path.isdir(os.path.join(test_path, folder))]
-
-    val_folders = [os.path.join(val_path, folder) 
-                    for folder in os.listdir(val_path) 
-                    if os.path.isdir(os.path.join(val_path, folder))]
-    
-    extractor.process_files_multithreaded(train_folders, "train")
-    extractor.process_files_multithreaded(test_folders, "test")
-    extractor.process_files_multithreaded(val_folders, "val")
-
+    # Process the input folder
+    print(f"Processing folder: {args.folder_path}")
+    extractor.process_files_multithreaded(folders, args.output_dir)
 
 if __name__ == "__main__":
     main()
