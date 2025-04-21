@@ -116,12 +116,4 @@ There are two scripts available:
    - `--json_path`: Path to the background distributions JSON file (default: feature_extraction/background_distributions.json).
    - `--no_batching`: Optional flag to process all files without batching.
 
-## 4. SLT (Shining Light into the Tunnel) Features
 
-*Coming soon*
-
-### Prerequisites
-
-### Usage
-
-### Output
