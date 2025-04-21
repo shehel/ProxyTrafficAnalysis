@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import numpy as np
 from scipy.stats import zscore
@@ -16,6 +17,8 @@ BG_LEN_MEAN = None
 BG_LEN_STD = None
 BG_TG_MEAN = None
 BG_TG_STD = None
+
+
 
 def get_metrics(array_cp):
     """
@@ -36,6 +39,12 @@ def get_metrics(array_cp):
         corr_minimum, corr_maximum, corr_range,
         corr_variance, corr_std_dev
     )
+    
+def get_zero_metrics():
+    
+    return (0, 0, 0, 0,
+            0, 0, 0,
+            0, 0)
 
 
 def get_correlation_array(gateway_df, df, pkt_limit, bin_size_seconds=0.1, bound_range=1.0):
@@ -167,7 +176,7 @@ def process_single_connection(args):
 
     gateway_sub = gateway_binned.iloc[left_idx:right_idx]
     if gateway_sub.empty:
-        return None
+        return get_zero_metrics()
 
     # Rename columns for clarity
     gateway_sub = gateway_sub.rename(columns={'pkt_len': 'gw_len'})
@@ -268,7 +277,7 @@ def apply_changes(df, pkt_limit):
         return df
 
     for conn_name, group in df.groupby('conn', sort=False):
-        if len(group) >= pkt_limit:
+        if len(group) >= 20:
             group = group.sort_values(by='ts_relative', ascending=True).copy()
             
             # Apply bias removal
@@ -309,16 +318,15 @@ def process_connection(folder_name, prefix, pkt_limit):
 
     return all_data
 
-def save_batch(data_dfs, prefix, set_name, batch_num):
+def save_batch(data_dfs, prefix, batch_num, output_dir):
     """Save a batch of data to CSV"""
     if not data_dfs:
         return
     
     batch_df = pd.concat(data_dfs)
-    output_dir = f'content/without_attack_features_50/{set_name}'
     os.makedirs(output_dir, exist_ok=True)
     
-    output_file = os.path.join(output_dir, f'{prefix}_corr_batch_{batch_num}_first_50.csv')
+    output_file = os.path.join(output_dir, f'{prefix}_corr_batch_{batch_num}.csv')
     batch_df.to_csv(output_file, index=False)
     print(f"Saved {prefix} batch {batch_num} with {len(batch_df)} rows")
 
@@ -339,7 +347,7 @@ def process_batch(folder_paths, prefix, pkt_limit):
     
     return batch_results
 
-def get_correlation_array_multithread(folder_paths, set_name, pkt_limit):
+def get_correlation_array_multithread(folder_paths, output_dir, pkt_limit):
     prefixes = ["relayed", "background"]
     BATCH_SIZE = 5  # Number of folders to process before saving
     
@@ -348,55 +356,40 @@ def get_correlation_array_multithread(folder_paths, set_name, pkt_limit):
         total_batches = (len(folder_paths) + BATCH_SIZE - 1) // BATCH_SIZE  # ceil division
         
         print(f"\nProcessing {prefix} data:")
-        # Create progress bar for batches
         with tqdm(total=total_batches, desc=f"{prefix} batches") as batch_pbar:
-            # Process folders in batches
             for i in range(0, len(folder_paths), BATCH_SIZE):
                 batch_folders = folder_paths[i:i + BATCH_SIZE]
                 
-                # Process the current batch
                 batch_results = process_batch(batch_folders, prefix, pkt_limit)
                 
-                # Save the batch if we have results
                 if batch_results:
-                    save_batch(batch_results, prefix, set_name, batch_number)
+                    save_batch(batch_results, prefix, batch_number, output_dir)
                     batch_number += 1
                 
-                # Clear memory
                 del batch_results
-                
-                # Update progress bar
                 batch_pbar.update(1)
 
 def main():
-    pkt_limit = 50
+    parser = argparse.ArgumentParser(description='Process PCAP files for correlation analysis')
+    parser.add_argument('--folder_path', type=str, required=True,
+                      help='Path to the folder containing PCAP files')
+    parser.add_argument('--pkt_limit', type=int, default=50,
+                      help='Packet limit for analysis (default: 50)')
+    parser.add_argument('--output_dir', type=str, required=True,
+                      help='Directory where results will be saved')
     
-    train_path = "content/full_unbiased_features/train"
-    test_path = "content/full_unbiased_features/test"
-    val_path = "content/full_unbiased_features/val"
-   
-    train_folders = [os.path.join(train_path, folder) 
-                    for folder in os.listdir(train_path) 
-                    if os.path.isdir(os.path.join(train_path, folder))]
+    args = parser.parse_args()
     
-    test_folders = [os.path.join(test_path, folder) 
-                    for folder in os.listdir(test_path) 
-                    if os.path.isdir(os.path.join(test_path, folder))]
-    val_folders = [os.path.join(val_path, folder) 
-                    for folder in os.listdir(val_path) 
-                    if os.path.isdir(os.path.join(val_path, folder))]
+    # Get all subfolders in the input folder
+    folders = [os.path.join(args.folder_path, folder) 
+              for folder in os.listdir(args.folder_path) 
+              if os.path.isdir(os.path.join(args.folder_path, folder))]
     
-
     # Get distribution info from json file
-    load_empirical_samples('background_distributions.json')
+    load_empirical_samples('feature_extraction/background_distributions.json')
     
-    print("Processing test set...")
-    get_correlation_array_multithread(test_folders, "test", pkt_limit)
-    # print("Processing validation set...")
-    # get_correlation_array_multithread(val_folders, "val", pkt_limit)
-    # print("Processing training set...")
-    # get_correlation_array_multithread(train_folders, "train", pkt_limit)
-
+    print(f"Processing folder: {args.folder_path}")
+    get_correlation_array_multithread(folders, args.output_dir, args.pkt_limit)
 
 if __name__ == "__main__":
     main()
