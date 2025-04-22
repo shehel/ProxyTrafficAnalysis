@@ -5,7 +5,7 @@ Created: 25th May 2023
 Qatar Computing Research Institute
 '''
 
-import os, sys
+import os
 import xml.dom.minidom as xx
 import time
 

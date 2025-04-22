@@ -6,9 +6,8 @@ Modified on: 29th May 2023
 Qatar Computing Research Institute
 '''
 
-import os, sys
+import os
 import time
-import subprocess
 
 # Note: apkpath => curdr+/apkfiles/apkname.apk
 def install_apk(apkpath):

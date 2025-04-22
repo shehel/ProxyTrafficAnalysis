@@ -1,40 +1,14 @@
-import sys, os
+import os
 import matplotlib
-import time
 import pandas as pd
-import numpy
-import ast
-import json
-import matplotlib.pyplot as plt
 matplotlib.use('Agg')
-from sklearn.neighbors import KNeighborsClassifier as knnbase
-from sklearn.ensemble import RandomForestClassifier as rf
-from sklearn.naive_bayes import MultinomialNB as mnb
-from sklearn.linear_model import LogisticRegression as LR
-from sklearn.naive_bayes import GaussianNB as GNB
-
-from autogluon.tabular import TabularDataset
 from autogluon.tabular import TabularPredictor as task
-from autogluon.core.utils import infer_problem_type
-
-from sklearn.model_selection import GridSearchCV as GSCV
-from sklearn.model_selection import train_test_split
-
-from sklearn.preprocessing import MinMaxScaler as MMS
-from sklearn.preprocessing import StandardScaler as SS
-
-from sklearn.metrics import accuracy_score, hamming_loss, precision_score, recall_score, f1_score
 from sklearn.metrics import classification_report
 from sklearn.metrics import multilabel_confusion_matrix as ML_matrix
 from sklearn.metrics import precision_recall_fscore_support as score_multi
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import train_test_split
-from sklearn.utils import shuffle
-from pickle import load, dump
-from sklearn.utils import resample
 from sklearn.metrics import classification_report
-from scipy.stats import ttest_ind
 
 import os
 import pickle
@@ -76,10 +50,6 @@ def get_corr_features(include_attack=True, full_dataset=True, fifty_pcaps=True):
         train_path = f"../content/{dataset_path}/corr_attack_{pcap_path}/train"
         val_path = f"../content/{dataset_path}/corr_attack_{pcap_path}/val"
     else:
-        # test_path = f"../content/{dataset_path}/corr_clean/test"
-        # train_path = f"../content/{dataset_path}/corr_clean/train"
-        # val_path = f"../content/{dataset_path}/corr_clean/val"
-        
         test_path = f"../content/{dataset_path}/corr_clean_{pcap_path}/test"
         train_path = f"../content/{dataset_path}/corr_clean_{pcap_path}/train"
         val_path = f"../content/{dataset_path}/corr_clean_{pcap_path}/val"

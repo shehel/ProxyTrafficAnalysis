@@ -1,4 +1,3 @@
-import pandas
 import json
 import argparse
 import dpkt

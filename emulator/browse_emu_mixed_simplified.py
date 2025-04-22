@@ -9,8 +9,6 @@ import timeout_decorator
 from timeout_decorator.timeout_decorator import TimeoutError
 import xml.dom.minidom as xx
 import random
-import re
-import logging
 from exceptions import *
 
 global ANDROID_HOME

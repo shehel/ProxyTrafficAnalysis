@@ -5,20 +5,16 @@ Modified Feature Extractor for 3-way Classification
 """
 from extract_features import get_features
 from host_features_limited import extract_features_by_conn
-from rtt_tls_feature import get_rtt_feature
+from rtt_tls_feature import get_rtt_feature # Keep in case rtt to be reused
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import csv
 import pandas as pd
 import argparse
 import os
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import List
 import warnings
 import numpy as np
 import json
 import tqdm
-import pdb
 warnings.filterwarnings("ignore")
 
 

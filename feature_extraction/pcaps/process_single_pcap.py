@@ -1,8 +1,6 @@
 import os
 import subprocess
-from datetime import datetime
 import argparse
-import re
 
 # Argument parsing
 parser = argparse.ArgumentParser(description="Process PCAP files with Zeek and custom scripts.")

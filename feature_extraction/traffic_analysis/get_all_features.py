@@ -7,11 +7,10 @@ Created on Wed Nov 27 15:05:12 2024
 """
 from extract_features import get_features
 from host_features_limited import extract_features_by_conn
-from rtt_tls_feature import get_rtt_feature
+from rtt_tls_feature import get_rtt_feature # keep in case rtt to be reused
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import pandas as pd
-import pdb
 import argparse
 import os
 from pathlib import Path

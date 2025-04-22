@@ -7,7 +7,6 @@ Created on Thu Mar 20 08:57:32 2025
 """
 
 import pandas as pd
-import random
 import requests
 
 def is_accessible(domain):

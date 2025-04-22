@@ -1,26 +1,9 @@
 # Script modified to extract connection-level features [Hayes et al. USENIX 2016]
 # min limit pkt length: proxy 1000 normal 60
 
-import csv
-import sys
 import math
-from sys import stdout
 import numpy as np
-import operator
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_val_score
-from sklearn import metrics
-from sklearn import tree
-import sklearn.metrics as skm
-import scipy
-import random
-import os
-from collections import defaultdict
-import argparse
 from itertools import chain
-import subprocess
-import json
-import pdb
 # re-seed the generator
 #np.random.seed(1234)
 

@@ -9,8 +9,6 @@ import dpkt
 import os
 import socket
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def is_client_hello(data):

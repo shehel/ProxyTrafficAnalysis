@@ -7,7 +7,6 @@ Created on Wed Dec  4 10:13:04 2024
 """
 import pandas as pd
 import argparse
-import os
 
 def enter_cmd_args():
     parser = argparse.ArgumentParser()
