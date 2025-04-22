@@ -1,21 +1,27 @@
 import os
-import matplotlib
-import pandas as pd
-matplotlib.use('Agg')
-from autogluon.tabular import TabularPredictor as task
-from sklearn.metrics import classification_report
-from sklearn.metrics import multilabel_confusion_matrix as ML_matrix
-from sklearn.metrics import precision_recall_fscore_support as score_multi
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
-
-import os
 import pickle
 from datetime import datetime
+
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
+
+from autogluon.tabular import TabularPredictor as task
+from sklearn.metrics import (
+    classification_report,
+    roc_auc_score,
+    confusion_matrix
+)
 
 def get_full_df(path):
+    """
+    Combine background and relay dataframes from a directory and add labels.
+    
+    Args:
+        path (str): Directory containing CSV files
+    Returns:
+        pd.DataFrame: Combined dataframe with labels
+    """
     bg_dfs = []
     rl_dfs = []
     for file in os.listdir(path):
@@ -32,7 +38,6 @@ def get_full_df(path):
     
     return pd.concat([bg_df, rl_df])
 
-
 def get_corr_features(include_attack=True, full_dataset=True, fifty_pcaps=True):
     if full_dataset:
         dataset_path = "ds11"
@@ -46,13 +51,13 @@ def get_corr_features(include_attack=True, full_dataset=True, fifty_pcaps=True):
         
         
     if include_attack:
-        test_path = f"../content/{dataset_path}/corr_attack_{pcap_path}/test"
-        train_path = f"../content/{dataset_path}/corr_attack_{pcap_path}/train"
-        val_path = f"../content/{dataset_path}/corr_attack_{pcap_path}/val"
+        test_path = f"content/{dataset_path}/corr_attack_{pcap_path}/test"
+        train_path = f"content/{dataset_path}/corr_attack_{pcap_path}/train"
+        val_path = f"content/{dataset_path}/corr_attack_{pcap_path}/val"
     else:
-        test_path = f"../content/{dataset_path}/corr_clean_{pcap_path}/test"
-        train_path = f"../content/{dataset_path}/corr_clean_{pcap_path}/train"
-        val_path = f"../content/{dataset_path}/corr_clean_{pcap_path}/val"
+        test_path = f"content/{dataset_path}/corr_clean_{pcap_path}/test"
+        train_path = f"content/{dataset_path}/corr_clean_{pcap_path}/train"
+        val_path = f"content/{dataset_path}/corr_clean_{pcap_path}/val"
         
     
     train_corr_df = get_full_df(train_path)
@@ -72,13 +77,13 @@ def get_slt_features(include_attack=True, full_dataset=True):
         dataset_path = "ds4"
     
     if include_attack:
-        train_wrtt_df = pd.read_parquet(f"../content/{dataset_path}/ds4_wrtt/train/ds4_wrtt.parquet")
-        test_wrtt_df = pd.read_parquet(f"../content/{dataset_path}/ds4_wrtt/test/ds4_wrtt.parquet")
-        val_wrtt_df = pd.read_parquet(f"../content/{dataset_path}/ds4_wrtt/val/ds4_wrtt.parquet")
+        train_wrtt_df = pd.read_parquet(f".ontent/{dataset_path}/ds4_wrtt/train/ds4_wrtt.parquet")
+        test_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt/test/ds4_wrtt.parquet")
+        val_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt/val/ds4_wrtt.parquet")
     else:
-        train_wrtt_df = pd.read_parquet(f"../content/{dataset_path}/ds4_wrtt_clean/train/ds4_wrtt_clean.parquet")
-        test_wrtt_df = pd.read_parquet(f"../content/{dataset_path}/ds4_wrtt_clean/test/ds4_wrtt_clean.parquet")
-        val_wrtt_df = pd.read_parquet(f"../content/{dataset_path}/ds4_wrtt_clean/val/ds4_wrtt_clean.parquet")
+        train_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt_clean/train/ds4_wrtt_clean.parquet")
+        test_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt_clean/test/ds4_wrtt_clean.parquet")
+        val_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt_clean/val/ds4_wrtt_clean.parquet")
 
     # Rename to match others
     train_wrtt_df.rename(columns={'pcap': 'pcap_nb'}, inplace=True)
@@ -107,9 +112,9 @@ def get_k_features(include_attack=True, full_dataset=True):
         extension = "csv"
         
     if include_attack:
-        train_df = get_pd(f"../content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/train/k_features_d11v2_3way_20pktsv2.{extension}")
-        test_df = get_pd(f"../content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/test/k_features_d11v2_3way_20pktsv2.{extension}")
-        val_df = get_pd(f"../content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/val/k_features_d11v2_3way_20pktsv2.{extension}")
+        train_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/train/k_features_d11v2_3way_20pktsv2.{extension}")
+        test_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/test/k_features_d11v2_3way_20pktsv2.{extension}")
+        val_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/val/k_features_d11v2_3way_20pktsv2.{extension}")
         
         train_df['label'] = train_df['label'].replace({1: 0})
         val_df['label'] = val_df['label'].replace({1: 0})
@@ -119,9 +124,9 @@ def get_k_features(include_attack=True, full_dataset=True):
         val_df['label'] = val_df['label'].replace({2: 1})
         test_df['label'] = test_df['label'].replace({2: 1})
     else:
-        train_df = get_pd(f"../content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/train/k_features_d11v2_3way_20pktsv2.{extension}")
-        test_df = get_pd(f"../content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/test/k_features_d11v2_3way_20pktsv2.{extension}")
-        val_df = get_pd(f"../content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/val/k_features_d11v2_3way_20pktsv2.{extension}")
+        train_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/train/k_features_d11v2_3way_20pktsv2.{extension}")
+        test_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/test/k_features_d11v2_3way_20pktsv2.{extension}")
+        val_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/val/k_features_d11v2_3way_20pktsv2.{extension}")
         
         train_df['label'] = train_df['label'].replace({1: 0})
         val_df['label'] = val_df['label'].replace({1: 0})
@@ -145,6 +150,8 @@ def get_dataset(dataset_name, include_attack = True, full_dataset = True, fifty_
     if dataset_name == "corr":
         return get_corr_features(include_attack, full_dataset, fifty_pcaps)
     if dataset_name == "k":
+        return get_k_features(include_attack)
+    else:
         return get_k_features(include_attack)
 
 # Use to decide which experiment to run
@@ -182,79 +189,103 @@ def run_experiment_setting(include_attack, experiment_number, full_dataset, fift
         
     return test_df, train_df, val_df
 
-ag_args_fit = {'num_gpus': 1}  # Allocate 1 GPU
-    
 def train_main(data_df, val_df, target_col, presets='medium_quality'):
-	agdir = os.getcwd()+'/AGmodels/'
-	if not os.path.exists(agdir):
-		os.system("mkdir "+agdir)
+    """
+    Train the AutoGluon model.
+    
+    Args:
+        data_df (pd.DataFrame): Training data
+        val_df (pd.DataFrame): Validation data
+        target_col (str): Name of target column
+        presets (str): Quality preset for AutoGluon
+    Returns:
+        task: Trained predictor
+    """
+    agdir = os.path.join(os.getcwd(), 'AGmodels')
+    if not os.path.exists(agdir):
+        os.makedirs(agdir)
 
-	if presets == 'medium_quality':
-		predictor = task(label=target_col, path=agdir, eval_metric='f1').fit(train_data=data_df, tuning_data=val_df, verbosity=3, ag_args_fit=ag_args_fit, presets='medium_quality')
-	else:
-		all_data = pd.concat([data_df, val_df])
-		predictor = task(label=target_col, path=agdir, eval_metric='f1').fit(train_data=all_data, verbosity=3, ag_args_fit=ag_args_fit, presets='best_quality')
+    ag_args_fit = {'num_gpus': 1}
+
+    if presets == 'medium_quality':
+        predictor = task(label=target_col, path=agdir, eval_metric='f1').fit(
+            train_data=data_df, 
+            tuning_data=val_df, 
+            verbosity=3, 
+            ag_args_fit=ag_args_fit, 
+            presets='medium_quality'
+        )
+    else:
+        all_data = pd.concat([data_df, val_df])
+        predictor = task(label=target_col, path=agdir, eval_metric='f1').fit(
+            train_data=all_data, 
+            verbosity=3, 
+            ag_args_fit=ag_args_fit, 
+            presets='best_quality'
+        )
      
-	return predictor
-
+    return predictor
 
 def test_main(xtest, ytest, pred, testdf, traindf, calcftimpo=False):
-	modelperf = pred.leaderboard(testdf, silent= True)
-	print("[*]Model performance breakdown on Test data:")
-	print(modelperf)
-	ypred = pred.predict(xtest)
-	ypredproba = pred.predict_proba(xtest)
-	perf = pred.evaluate_predictions(y_true=ytest, y_pred=ypred, auxiliary_metrics= True)
-	print("[*]Predictions: ", ypred)
-	print("[*]Confidence in predictions:\n")
-	print(pd.DataFrame(ypredproba, columns=pred.class_labels))
-	# Each model score
-	print("Perf: ", perf)
-	print(classification_report(ytest, ypred, output_dict=True))
+    """
+    Evaluate the trained model.
+    
+    Args:
+        xtest: Test features
+        ytest: Test labels
+        pred: Trained predictor
+        testdf: Complete test dataframe
+        traindf: Complete train dataframe
+        calcftimpo (bool): Whether to calculate feature importance
+    Returns:
+        tuple: Various evaluation metrics and results
+    """
+    modelperf = pred.leaderboard(testdf, silent=True)
+    ypred = pred.predict(xtest)
+    ypredproba = pred.predict_proba(xtest)
+    perf = pred.evaluate_predictions(y_true=ytest, y_pred=ypred, auxiliary_metrics=True)
+    
+    print("\nModel Performance:")
+    print(modelperf)
+    print("\nClassification Report:")
+    print(classification_report(ytest, ypred))
+    
+    cmatrix = confusion_matrix(ytest, ypred).ravel().tolist()
+    auc_score = roc_auc_score(ytest, ypredproba.iloc[:, 1])
+    print(f"\nAUC score: {auc_score}")
 
-	print("Getting confusion matrix.....")
-	cmatrix = confusion_matrix(ytest, ypred).ravel().tolist()
-	print(cmatrix)
-	auc_score = roc_auc_score(ytest, ypredproba.iloc[:, 1])
-	print("AUC score for best model: ", auc_score)
-
-	if calcftimpo:
-		ftimpo = None
-		ftimpo = pred.feature_importance(traindf)
-		print("Feature Importance on test data: ", ftimpo)
-	else:
-		ftimpo = None
-	bestmodel = pred.model_best
-	# Find mistakes
-	misclassified = xtest[ypred != ytest].copy()
-	misclassified['true_label'] = ytest[ypred != ytest]
-	misclassified['predicted_label'] = ypred[ypred != ytest]
-	return modelperf, ftimpo, cmatrix, ypredproba, bestmodel, perf, auc_score, misclassified
+    ftimpo = pred.feature_importance(traindf) if calcftimpo else None
+    
+    # Find misclassified samples
+    misclassified = xtest[ypred != ytest].copy()
+    misclassified['true_label'] = ytest[ypred != ytest]
+    misclassified['predicted_label'] = ypred[ypred != ytest]
+    
+    return modelperf, ftimpo, cmatrix, ypredproba, pred.model_best, perf, auc_score, misclassified
 
 def main():
     # Create timestamp and results directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    base_results_dir = f'fifty_pcaps_experiment_results_{timestamp}'
+    base_results_dir = f'experiment_results_{timestamp}'
     os.makedirs(base_results_dir, exist_ok=True)
 
     # Define experiment configurations
     configurations = [
-        False, True
+        (0, False), (0, True)
     ]
 
     results_summary = []
 
-    for use_fifty_pcaps in configurations:
+    for experiment_number, use_fifty_pcaps in configurations:
         exp_name = f'{"50_pcaps" if use_fifty_pcaps else "20_pcaps"}_setting'
-        print(f"\nRunning experiment: {exp_name}")
+        print(f"\nRunning experiment: {exp_name} using experiment number: {experiment_number}")
         
         # Create directory for this specific experiment
         exp_dir = os.path.join(base_results_dir, exp_name)
         os.makedirs(exp_dir, exist_ok=True)
         
         # Get the data splits
-        test_df, train_df, val_df = run_experiment_setting(True, 0, full_dataset=True, fifty_pcaps=use_fifty_pcaps)
-        
+        test_df, train_df, val_df = run_experiment_setting(True, experiment_number, full_dataset=True, fifty_pcaps=use_fifty_pcaps)
         
         # Reset indices
         train_df = train_df.reset_index(drop=True)
