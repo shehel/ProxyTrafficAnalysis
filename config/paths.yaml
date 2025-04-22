@@ -1,0 +1,38 @@
+base_paths:
+  content_dir: "content"
+  models_dir: "AGmodels"
+  results_dir: "experiment_results"
+
+datasets:
+  ds4:
+    base_dir: "ds4"
+    extensions: "csv"
+  ds11:
+    base_dir: "ds11"
+    extensions: "parquet"
+
+feature_paths:
+  corr:
+    attack:
+      clean_50: "corr_clean_50"
+      clean_20: "corr_clean_20"
+      attack_50: "corr_attack_50"
+      attack_20: "corr_attack_20"
+  slt:
+    clean:
+      base_dir: "ds4_wrtt_clean"
+    attack:
+      base_dir: "ds4_wrtt"
+    file_name: "ds4_wrtt"
+  k_features:
+    clean:
+      base_dir: "ds11v2rq1_3way_20pkts_cleanv3"
+      file_name: "k_features_d11v2_3way_20pktsv2"
+    attack:
+      base_dir: "ds11v2rq1_3way_20pkts_attackv3"
+      file_name: "k_features_d11v2_3way_20pktsv2"
+
+splits:
+  - "train"
+  - "test"
+  - "val"

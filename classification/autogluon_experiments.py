@@ -12,6 +12,7 @@ from sklearn.metrics import (
     roc_auc_score,
     confusion_matrix
 )
+from utils.config import Config
 
 def get_full_df(path):
     """
@@ -39,26 +40,12 @@ def get_full_df(path):
     return pd.concat([bg_df, rl_df])
 
 def get_corr_features(include_attack=True, full_dataset=True, fifty_pcaps=True):
-    if full_dataset:
-        dataset_path = "ds11"
-    else:
-        dataset_path = "ds4"
-        
-    if fifty_pcaps:
-        pcap_path = "50"
-    else:
-        pcap_path = "20"
-        
-        
-    if include_attack:
-        test_path = f"content/{dataset_path}/corr_attack_{pcap_path}/test"
-        train_path = f"content/{dataset_path}/corr_attack_{pcap_path}/train"
-        val_path = f"content/{dataset_path}/corr_attack_{pcap_path}/val"
-    else:
-        test_path = f"content/{dataset_path}/corr_clean_{pcap_path}/test"
-        train_path = f"content/{dataset_path}/corr_clean_{pcap_path}/train"
-        val_path = f"content/{dataset_path}/corr_clean_{pcap_path}/val"
-        
+    config = Config()
+    base_path = config.get_dataset_path("corr", include_attack, full_dataset, fifty_pcaps)
+    
+    test_path = os.path.join(base_path, "test")
+    train_path = os.path.join(base_path, "train")
+    val_path = os.path.join(base_path, "val")
     
     train_corr_df = get_full_df(train_path)
     test_corr_df = get_full_df(test_path)
@@ -71,19 +58,13 @@ def get_corr_features(include_attack=True, full_dataset=True, fifty_pcaps=True):
     return train_corr_df, test_corr_df, val_corr_df
 
 def get_slt_features(include_attack=True, full_dataset=True):
-    if full_dataset:
-        dataset_path = "ds11"
-    else:
-        dataset_path = "ds4"
+    config = Config()
+    base_path = config.get_dataset_path("slt", include_attack, full_dataset)
+    extension = config.get_file_extension(full_dataset)
     
-    if include_attack:
-        train_wrtt_df = pd.read_parquet(f".ontent/{dataset_path}/ds4_wrtt/train/ds4_wrtt.parquet")
-        test_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt/test/ds4_wrtt.parquet")
-        val_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt/val/ds4_wrtt.parquet")
-    else:
-        train_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt_clean/train/ds4_wrtt_clean.parquet")
-        test_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt_clean/test/ds4_wrtt_clean.parquet")
-        val_wrtt_df = pd.read_parquet(f"content/{dataset_path}/ds4_wrtt_clean/val/ds4_wrtt_clean.parquet")
+    train_wrtt_df = pd.read_parquet(os.path.join(base_path, "train", f"ds4_wrtt.{extension}"))
+    test_wrtt_df = pd.read_parquet(os.path.join(base_path, "test", f"ds4_wrtt.{extension}"))
+    val_wrtt_df = pd.read_parquet(os.path.join(base_path, "val", f"ds4_wrtt.{extension}"))
 
     # Rename to match others
     train_wrtt_df.rename(columns={'pcap': 'pcap_nb'}, inplace=True)
@@ -104,37 +85,21 @@ def get_pd(file_path):
         return pd.read_csv(file_path)
 
 def get_k_features(include_attack=True, full_dataset=True):
-    if full_dataset:
-        dataset_path = "ds11"
-        extension = "parquet"
-    else:
-        dataset_path = "ds4"
-        extension = "csv"
+    config = Config()
+    base_path = config.get_dataset_path("k", include_attack, full_dataset)
+    extension = config.get_file_extension(full_dataset)
+    
+    train_df = get_pd(os.path.join(base_path, "train", f"k_features_d11v2_3way_20pktsv2.{extension}"))
+    test_df = get_pd(os.path.join(base_path, "test", f"k_features_d11v2_3way_20pktsv2.{extension}"))
+    val_df = get_pd(os.path.join(base_path, "val", f"k_features_d11v2_3way_20pktsv2.{extension}"))
         
-    if include_attack:
-        train_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/train/k_features_d11v2_3way_20pktsv2.{extension}")
-        test_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/test/k_features_d11v2_3way_20pktsv2.{extension}")
-        val_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_attackv3/val/k_features_d11v2_3way_20pktsv2.{extension}")
-        
-        train_df['label'] = train_df['label'].replace({1: 0})
-        val_df['label'] = val_df['label'].replace({1: 0})
-        test_df['label'] = test_df['label'].replace({1: 0})
+    train_df['label'] = train_df['label'].replace({1: 0})
+    val_df['label'] = val_df['label'].replace({1: 0})
+    test_df['label'] = test_df['label'].replace({1: 0})
 
-        train_df['label'] = train_df['label'].replace({2: 1})
-        val_df['label'] = val_df['label'].replace({2: 1})
-        test_df['label'] = test_df['label'].replace({2: 1})
-    else:
-        train_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/train/k_features_d11v2_3way_20pktsv2.{extension}")
-        test_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/test/k_features_d11v2_3way_20pktsv2.{extension}")
-        val_df = get_pd(f"content/{dataset_path}/ds11v2rq1_3way_20pkts_cleanv3/val/k_features_d11v2_3way_20pktsv2.{extension}")
-        
-        train_df['label'] = train_df['label'].replace({1: 0})
-        val_df['label'] = val_df['label'].replace({1: 0})
-        test_df['label'] = test_df['label'].replace({1: 0})
-
-        train_df['label'] = train_df['label'].replace({2: 1})
-        val_df['label'] = val_df['label'].replace({2: 1})
-        test_df['label'] = test_df['label'].replace({2: 1})
+    train_df['label'] = train_df['label'].replace({2: 1})
+    val_df['label'] = val_df['label'].replace({2: 1})
+    test_df['label'] = test_df['label'].replace({2: 1})
     
     # Rename to match others
     train_df.rename(columns={'pcap': 'pcap_nb'}, inplace=True)
@@ -150,8 +115,6 @@ def get_dataset(dataset_name, include_attack = True, full_dataset = True, fifty_
     if dataset_name == "corr":
         return get_corr_features(include_attack, full_dataset, fifty_pcaps)
     if dataset_name == "k":
-        return get_k_features(include_attack)
-    else:
         return get_k_features(include_attack)
 
 # Use to decide which experiment to run
@@ -201,7 +164,8 @@ def train_main(data_df, val_df, target_col, presets='medium_quality'):
     Returns:
         task: Trained predictor
     """
-    agdir = os.path.join(os.getcwd(), 'AGmodels')
+    config = Config()
+    agdir = os.path.join(os.getcwd(), config.get_models_dir())
     if not os.path.exists(agdir):
         os.makedirs(agdir)
 
@@ -265,8 +229,9 @@ def test_main(xtest, ytest, pred, testdf, traindf, calcftimpo=False):
 
 def main():
     # Create timestamp and results directory
+    config = Config()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    base_results_dir = f'experiment_results_{timestamp}'
+    base_results_dir = f'{config.get_results_dir()}_{timestamp}'
     os.makedirs(base_results_dir, exist_ok=True)
 
     # Define experiment configurations
