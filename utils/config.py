@@ -48,3 +48,10 @@ class Config:
     
     def get_splits(self):
         return self.config['splits']
+    
+    def get_experiment_configs(self):
+        """Load experiment configurations from YAML file."""
+        config_path = os.path.join('config', 'experiment_config.yaml')
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+        return config['experiment_configurations']

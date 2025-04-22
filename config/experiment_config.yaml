@@ -1,0 +1,7 @@
+experiment_configurations:
+  - experiment_number: 0
+    use_fifty_pcaps: false
+    description: "20 pcaps setting"
+  - experiment_number: 0
+    use_fifty_pcaps: true
+    description: "50 pcaps setting"

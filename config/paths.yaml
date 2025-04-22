@@ -1,7 +1,7 @@
 base_paths:
   content_dir: "content"
   models_dir: "AGmodels"
-  results_dir: "experiment_results"
+  results_dir: "classification/experiment_results"
 
 datasets:
   ds4:

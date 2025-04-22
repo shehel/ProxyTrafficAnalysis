@@ -234,14 +234,13 @@ def main():
     base_results_dir = f'{config.get_results_dir()}_{timestamp}'
     os.makedirs(base_results_dir, exist_ok=True)
 
-    # Define experiment configurations
-    configurations = [
-        (0, False), (0, True)
-    ]
-
+    # Load configurations from YAML
+    configurations = config.get_experiment_configs()
     results_summary = []
 
-    for experiment_number, use_fifty_pcaps in configurations:
+    for conf in configurations:
+        experiment_number = conf['experiment_number']
+        use_fifty_pcaps = conf['use_fifty_pcaps']
         exp_name = f'{"50_pcaps" if use_fifty_pcaps else "20_pcaps"}_setting'
         print(f"\nRunning experiment: {exp_name} using experiment number: {experiment_number}")
         
