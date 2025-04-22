@@ -4,13 +4,14 @@ import numpy as np
 from scipy.stats import zscore
 import os
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import json
 import cudf
 import cupy as cp
 from cuml.preprocessing import StandardScaler
 import pdb
+import multiprocessing as mp
 
 EMPIRICAL_PACKET_LENS = None
 BG_LEN_MEAN = None
@@ -300,6 +301,9 @@ def apply_changes(df, pkt_limit):
     out_df = pd.concat(updated_groups).sort_index()
     return out_df
 
+def init_worker(config_data):
+    global EMPIRICAL_PACKET_LENS, BG_LEN_MEAN, BG_LEN_STD, BG_TG_MEAN, BG_TG_STD
+    (EMPIRICAL_PACKET_LENS, BG_LEN_MEAN, BG_LEN_STD, BG_TG_MEAN, BG_TG_STD) = config_data
 
 def process_connection(folder_name, prefix, pkt_limit):
     all_data = []
@@ -334,7 +338,12 @@ def process_batch(folder_paths, prefix, pkt_limit):
     """Process a batch of folders and return their combined results"""
     batch_results = []
     
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    num_workers = min(20, os.cpu_count() if os.cpu_count() else 4) 
+    print(f"Number of workers: {num_workers}")
+    
+    # Pass the global variables to be initialized in new process
+    config = (EMPIRICAL_PACKET_LENS, BG_LEN_MEAN, BG_LEN_STD, BG_TG_MEAN, BG_TG_STD)
+    with ProcessPoolExecutor(initializer=init_worker, initargs=(config, ), max_workers=num_workers) as executor:
         futures = {executor.submit(process_connection, path, prefix, pkt_limit): path 
                   for path in folder_paths}
         
@@ -345,11 +354,12 @@ def process_batch(folder_paths, prefix, pkt_limit):
                 df['label'] = 1 if prefix == "relayed" else 0
                 batch_results.append(df)
     
+    exit(0)
     return batch_results
 
 def get_correlation_array_multithread(folder_paths, output_dir, pkt_limit):
     prefixes = ["relayed", "background"]
-    BATCH_SIZE = 5  # Number of folders to process before saving
+    BATCH_SIZE = 20  # Number of folders to process before saving
     
     for prefix in prefixes:
         batch_number = 0
@@ -370,6 +380,13 @@ def get_correlation_array_multithread(folder_paths, output_dir, pkt_limit):
                 batch_pbar.update(1)
 
 def main():
+    try:
+        mp.set_start_method('spawn', force=True)
+        print("Set multiprocessing method to spawn")
+    except:
+        print("Multiprocessing method already set or could not be forced")
+        pass
+
     parser = argparse.ArgumentParser(description='Process PCAP files for correlation analysis')
     parser.add_argument('--folder_path', type=str, required=True,
                       help='Path to the folder containing PCAP files')
@@ -386,7 +403,7 @@ def main():
               if os.path.isdir(os.path.join(args.folder_path, folder))]
     
     # Get distribution info from json file
-    load_empirical_samples('feature_extraction/background_distributions.json')
+    load_empirical_samples('background_distributions.json')
     
     print(f"Processing folder: {args.folder_path}")
     get_correlation_array_multithread(folders, args.output_dir, args.pkt_limit)
