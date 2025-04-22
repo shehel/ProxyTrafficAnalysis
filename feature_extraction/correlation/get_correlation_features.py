@@ -351,7 +351,6 @@ def process_batch(folder_paths, prefix, pkt_limit):
                 df['label'] = 1 if prefix == "relayed" else 0
                 batch_results.append(df)
     
-    exit(0)
     return batch_results
 
 def get_correlation_array_multithread(folder_paths, output_dir, pkt_limit):
