@@ -399,7 +399,7 @@ def main():
               if os.path.isdir(os.path.join(args.folder_path, folder))]
     
     # Get distribution info from json file
-    load_empirical_samples('background_distributions.json')
+    load_empirical_samples('feature_extraction/background_distributions.json')
     
     print(f"Processing folder: {args.folder_path}")
     get_correlation_array_multithread(folders, args.output_dir, args.pkt_limit)
