@@ -7,6 +7,7 @@ import subprocess
 import subprocess
 import timeout_decorator
 from timeout_decorator.timeout_decorator import TimeoutError
+from typing import Literal
 import xml.dom.minidom as xx
 import random
 # from exceptions import *
@@ -23,6 +24,8 @@ ROOTAVD_PATH = os.getenv('ROOTAVD_PATH')
 EMU_PATH = os.getenv('EMU_PATH')
 PCAP_PATH = os.getenv("PCAP_PATH", "/default/pcap/path")
 SCRIPT_DIR = os.getenv("SCRIPT_DIR", "/default/script/path")
+
+EStatus = Literal["PROXY", "BG", "MIXED"]
 
 # Change to the scripts directory
 import os
@@ -1013,22 +1016,24 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
         # Add setup for Magisk
         start_magisk()
 
-    if mixed_type:
-        print("Starting emulator for mixed domains with proxy app in background......")
-        file_name = '/mixed_'+date_time_str+'_'+activity+'.pcap'
-        
-        # Should not wipe data if pcap droid being used, as we just installed root in prev run
-        # tcp dump should be disable if pcap droid being used, and enabled otherwise
-        pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data= not use_pcap_droid, enable_tcp_dump=not use_pcap_droid)
-        log.write(PCAP_PATH+'/mixed_'+activity+'.pcap')
-    else:
+    if mixed_type == "BG":
         print("Starting emulator for bg only traffic......")
         file_name = '/bg_'+date_time_str+'_'+activity+'.pcap'
-        pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=not pcap_droid_type, enable_tcp_dump=not use_pcap_droid)
         log.write(PCAP_PATH+'/bg_'+activity+'.pcap')
-
-
-
+    elif mixed_type == "PROXY":
+        print("Starting emulator for mixed domains with proxy app in background......")
+        file_name = '/proxy_'+date_time_str+'_'+activity+'.pcap'
+        log.write(PCAP_PATH+'/proxy_'+activity+'.pcap')
+    else:
+        print("Starting emulator for mixed domains with proxy app in background......")
+        file_name = '/mixed_'+date_time_str+'_'+activity+'.pcap'
+        log.write(PCAP_PATH+'/mixed_'+activity+'.pcap')
+        
+    
+    # Should not wipe data if pcap droid being used, as we just installed root in prev run
+    # tcp dump should be disable if pcap droid being used, and enabled otherwise
+    pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=not use_pcap_droid, enable_tcp_dump=not use_pcap_droid)
+    
     # Setup remote capture app only if pcap droid enabled
     if use_pcap_droid:
         setup_remote_capture()
@@ -1047,10 +1052,14 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
             log.write("Attempts at opening GOOGLE CHROME failed!\n")
     setup_chrome()
     try:
-        if mixed_type:
+        if mixed_type == 'proxy':
             run_proxy(proxy_app, log)
-        time.sleep(10)
-        browse_mixed_websites(domains, log, profile, mixed_type)
+        elif mixed_type == 'bg':
+            browse_mixed_websites(domains, log, profile, mixed_type)
+        else: # Mean mixed traffic
+            run_proxy(proxy_app, log)
+            time.sleep(10)
+            browse_mixed_websites(domains, log, profile, mixed_type)
 
     except TimeoutError as e:
         print(e)
@@ -1231,10 +1240,10 @@ def finalize_remote_capture(file_name):
     print("Remote capture finalized and files moved.")
 
 if __name__ == "__main__":
-    print("USAGE: python3 browse_emu.py <time in mts: eg. 1/5/10/20> <user profile: eg. low/medium/high> <mixed traffic: eg. yes/no> <proxy app(enter # of app): eg.2(Bright Data)> <use PCAPDroid: yes/no")
+    print("USAGE: python3 browse_emu.py <time in mts: eg. 1/5/10/20> <user profile: eg. LOW/MEDIUM/HIGH> <mixed traffic: eg. PROXY/BG/MIXED> <proxy app(enter # of app): eg.2(Bright Data)> <use PCAPDroid: YES/NO")
     traffic_collection_time = int(sys.argv[1])*60
     profile = str(sys.argv[2]).upper()
-    mixed = str(sys.argv[3]).upper()
+    mixed: EStatus = sys.argv[3].upper()
     proxy_app = int(sys.argv[4])
     use_pcap_droid = str(sys.argv[5])
     print("Each website will be visited and collected traffic for(seconds): ", traffic_collection_time)
@@ -1248,15 +1257,10 @@ if __name__ == "__main__":
         act_level = 2
     else:
         act_level = 3
-
-    if mixed == "YES":
-        mixed_type = True
-    else:
-        mixed_type = False
         
     if use_pcap_droid == "YES":
         pcap_droid_type = True
     else:
         pcap_droid_type = False
 
-    browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed_type, proxy_app=proxy_app, use_pcap_droid=pcap_droid_type)
+    browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed, proxy_app=proxy_app, use_pcap_droid=pcap_droid_type)
