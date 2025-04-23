@@ -17,3 +17,6 @@ __pycache__
 
 # Ignore Autogloun results
 AGmodels/
+
+# Ignore emulation artifacts
+window_dump.xml
