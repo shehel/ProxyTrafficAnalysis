@@ -9,7 +9,7 @@ import timeout_decorator
 from timeout_decorator.timeout_decorator import TimeoutError
 import xml.dom.minidom as xx
 import random
-from exceptions import *
+# from exceptions import *
 
 global ANDROID_HOME
 global EMU_PATH
@@ -44,7 +44,8 @@ global loginkwds
 loginkwds = ["log in", "login", "sign in", "sign in with email", "already a member? log in", "账号密码登录"]
 global acckwds
 acckwds = ["continue as testhy", "fm_login_id", "username", "email", "phone number", "account no", "account number", "email_input_container", "session_key", "账号", "手机号", "邮箱"]
-global nonclickables
+nonclickables = ["com.android.chrome:id/home_button", "com.android.chrome:id/location_bar", "com.android.chrome:id/location_bar_status", "com.android.chrome:id/location_bar_status_icon", "com.android.chrome:id/url_bar", "com.android.chrome:id/toolbar_buttons", "com.android.chrome:id/tab_switcher_button", "com.android.chrome:id/menu_button_wrapper","com.android.chrome:id/menu_button", "com.android.chrome:id/toolbar_shadow", "com.android.chrome:id/translate_infobar_menu_button", "com.android.chrome:id/infobar_close_button"]
+
 search_kwds = []
 with open(SEARCH_KWDS, 'r') as f:
     for line in f.readlines():
@@ -126,18 +127,20 @@ def get_app_uid(package_name):
         print(f"Error while retrieving UID for {package_name}: {e}")
         return None
 
-def start_emu(pcapname, av='30', wipe_data=True):
+def start_emu(pcapname, av='30', wipe_data=True, enable_tcp_dump=False):
 
     if not os.path.isfile(EMU_PATH+"/emulator"):
         print("Emulator bash script missing!")
 
     print("Starting emulator with android-"+av)
     os.chdir(EMU_PATH)
+    
+    tcpdump = f"-tcpdump {pcapname}" if enable_tcp_dump else ""
 
     if wipe_data:
-        pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data " + tcpdump ,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     else:
-        pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio " + tcpdump, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -982,90 +985,94 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
         #open_new_tab()
         #domain_idx += 1
 
-def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_list', proxy_app=2):
+def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_list', proxy_app=2, use_pcap_droid=False):
 
     domains = get_domains(curdr+'/'+file_path)
     #print(domains)
     if len(domains) == 0:
         return
 
+    now = datetime.now()
+    date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
+    log = open("data/logs/log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
 
-    for i in range(1):
+    pid = None
+    activity = "low"
+    if profile == 2:
+        activity = "medium"
+    elif profile == 3:
+        activity = "high"
+        
+    stop_emu(pid)
 
-        now = datetime.now()
-        date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
-        log = open("data/logs/log_"+date_time_str+'_'+str(profile)+'.txt', "w+")
-
-        pid = None
-        activity = "low"
-        if profile == 2:
-            activity = "medium"
-        elif profile == 3:
-            activity = "high"
-        stop_emu(pid)
-
-
-        # Start emu again
+    # PCAP droid requires rooting the device first
+    if use_pcap_droid: 
+        # Start emu first time
         start_emu(PCAP_PATH, av='30')
 
         # Add setup for Magisk
         start_magisk()
 
-        if mixed_type:
-            print("Starting emulator for mixed domains with proxy app in background......")
-            file_name = '/mixed_'+date_time_str+'_'+activity+'.pcap'
-            pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=False)
-            log.write(PCAP_PATH+'/mixed_'+str(i+28)+'_'+activity+'.pcap')
-        else:
-            print("Starting emulator for bg only traffic......")
-            file_name = '/bg_'+date_time_str+'_'+activity+'.pcap'
-            pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=False)
-            log.write(PCAP_PATH+'/bg_'+str(i+28)+'_'+activity+'.pcap')
+    if mixed_type:
+        print("Starting emulator for mixed domains with proxy app in background......")
+        file_name = '/mixed_'+date_time_str+'_'+activity+'.pcap'
+        
+        # Should not wipe data if pcap droid being used, as we just installed root in prev run
+        # tcp dump should be disable if pcap droid being used, and enabled otherwise
+        pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data= not use_pcap_droid, enable_tcp_dump=not use_pcap_droid)
+        log.write(PCAP_PATH+'/mixed_'+activity+'.pcap')
+    else:
+        print("Starting emulator for bg only traffic......")
+        file_name = '/bg_'+date_time_str+'_'+activity+'.pcap'
+        pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=not pcap_droid_type, enable_tcp_dump=not use_pcap_droid)
+        log.write(PCAP_PATH+'/bg_'+activity+'.pcap')
 
 
-        # Setup remote capture app
+
+    # Setup remote capture app only if pcap droid enabled
+    if use_pcap_droid:
         setup_remote_capture()
 
-        print("Emulator ready for opening GOOGLE CHROME......")
-        status, result = open_chrome()
-        print("GOOGLE CHROME opening result => ", result)
-        log.write("mixed domains\nOpening Chrome => result: "+str(result)+" => Emulator status: "+str(status)+"\n")
-        time.sleep(4)
-        if not result:
-            if status:
-                print("Attempts at opening GOOGLE CHROME failed!")
-                log.write("Attempts at opening GOOGLE CHROME failed!\n")
-            else:
-                print("Emulator offline. Please check whether emulator is running!")
-                log.write("Attempts at opening GOOGLE CHROME failed!\n")
-        setup_chrome()
-        try:
-            if mixed_type:
-                run_proxy(proxy_app, log)
-            time.sleep(10)
-            browse_mixed_websites(domains, log, profile, mixed_type)
-        # time.sleep(collect_time)
-        except TimeoutError as e:
-            print(e)
-            print(
-                f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......")
-            log.write(
-                f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......\n")
-        except KeyboardInterrupt:
-            print("KeyboardInterrupt received. Finalizing remote capture.")
-            log.write("KeyboardInterrupt received. Finalizing remote capture.\n")
-        except Exception as e:
-            print("Error happened:", e)
-            log.write(f"Error happened: {e}\n")
-        finally:
-            # Finalize remote capture before stopping emulator
-            finalize_remote_capture(file_name)
-            # Then stop emulator
-            os.system("pkill -f emulator")
-            log.close()
-            stop_emu(None)
+    print("Emulator ready for opening GOOGLE CHROME......")
+    status, result = open_chrome()
+    print("GOOGLE CHROME opening result => ", result)
+    log.write("mixed domains\nOpening Chrome => result: "+str(result)+" => Emulator status: "+str(status)+"\n")
+    time.sleep(4)
+    if not result:
+        if status:
+            print("Attempts at opening GOOGLE CHROME failed!")
+            log.write("Attempts at opening GOOGLE CHROME failed!\n")
+        else:
+            print("Emulator offline. Please check whether emulator is running!")
+            log.write("Attempts at opening GOOGLE CHROME failed!\n")
+    setup_chrome()
+    try:
+        if mixed_type:
+            run_proxy(proxy_app, log)
+        time.sleep(10)
+        browse_mixed_websites(domains, log, profile, mixed_type)
 
-            #stop_emu(None)
+    except TimeoutError as e:
+        print(e)
+        print(
+            f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......")
+        log.write(
+            f"Traffic collection time limit {collect_time} secs is reached. Stop collecting traffic and close emulator......\n")
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt received. Finalizing remote capture.")
+        log.write("KeyboardInterrupt received. Finalizing remote capture.\n")
+    except Exception as e:
+        print("Error happened:", e)
+        log.write(f"Error happened: {e}\n")
+    finally:
+        # Finalize remote capture before stopping emulator
+        if use_pcap_droid:
+            finalize_remote_capture(file_name)
+            
+        # Then stop emulator
+        os.system("pkill -f emulator")
+        log.close()
+        stop_emu(None)
 
 def run_proxy(proxy_app, log, proxy_file='res/apks_to_run'):
     f = open(curdr+'/'+proxy_file, 'r')
@@ -1224,11 +1231,12 @@ def finalize_remote_capture(file_name):
     print("Remote capture finalized and files moved.")
 
 if __name__ == "__main__":
-    print("USAGE: python3 browse_emu.py <time in mts: eg. 1/5/10/20> <user profile: eg. low/medium/high> <mixed traffic: eg. yes/no> <proxy app(enter # of app): eg.2(Bright Data)>")
+    print("USAGE: python3 browse_emu.py <time in mts: eg. 1/5/10/20> <user profile: eg. low/medium/high> <mixed traffic: eg. yes/no> <proxy app(enter # of app): eg.2(Bright Data)> <use PCAPDroid: yes/no")
     traffic_collection_time = int(sys.argv[1])*60
     profile = str(sys.argv[2]).upper()
     mixed = str(sys.argv[3]).upper()
     proxy_app = int(sys.argv[4])
+    use_pcap_droid = str(sys.argv[5])
     print("Each website will be visited and collected traffic for(seconds): ", traffic_collection_time)
     print("The user profile is: ", profile, "ACTIVITY user")
     print("The traffic is mixed or not:", mixed)
@@ -1245,5 +1253,10 @@ if __name__ == "__main__":
         mixed_type = True
     else:
         mixed_type = False
+        
+    if use_pcap_droid == "YES":
+        pcap_droid_type = True
+    else:
+        pcap_droid_type = False
 
-    browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed_type, proxy_app=proxy_app)
+    browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed_type, proxy_app=proxy_app, use_pcap_droid=pcap_droid_type)
