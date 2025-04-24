@@ -350,6 +350,18 @@ def get_actions(dumpf):
 def sort_actions(actiondt):
     # click/checkwords: [xx,yy,xx_end,yy_end]
     clickables = dict()
+    # Print complete window dump first
+    print("\n=== COMPLETE WINDOW DUMP ===")
+    for k, v in actiondt.items():
+        xx, yy, xxe, yye = v['xy']
+        buttontype = v["uitype"]
+        print(f"Element: {k}")
+        print(f"  Position: [{xx},{yy}][{xxe},{yye}]")
+        print(f"  Type: {buttontype}")
+        print(f"  Clickable: {v['clickable']}")
+        print(f"  Enabled: {v['enabled']}")
+        print("------------------------")
+
     # clickable & enabled
     for k, v in actiondt.items():
         clickable = v["clickable"]
@@ -362,15 +374,21 @@ def sort_actions(actiondt):
     return clickables
 
 def choose_action(clickables):
+    print("\n=== CLICKABLE ELEMENTS ===")
     click_order = []
 
     for k, v in clickables.items():
-        if is_in_kwds(k): # or "button_next" in v[-1]:
-            print("Has click keywords")
-            print("(",v,",",k,")")
+        print(f"Clickable: {k}")
+        print(f"  Position: [{v[0]},{v[1]}][{v[2]},{v[3]}]")
+        print(f"  Type: {v[4]}")
+        print("------------------------")
+        if is_in_kwds(k):
+            print("  ** Has click keywords **")
+            print(f"  ** Adding to click order: ({v}, {k}) **")
             click_order += [(v, k)]
 
-    print("Click order: ", click_order)
+    print("\n=== FINAL CLICK ORDER ===")
+    print(click_order)
     return click_order
 
 def perform_click(x, y, xxe, yye, acttype):
@@ -916,8 +934,56 @@ def interact(domain, profile=1, searching=False):
         curr_time = datetime.now()
         if (curr_time-start_time).total_seconds() >= duration:
             return
+            
+        # Add random clicking behavior
+        dumpf = get_uidump()
+        if try_random_click(dumpf):
+            # Sleep briefly after click
+            time.sleep(random.uniform(2, 4))
+            
+        curr_time = datetime.now()
+        if (curr_time-start_time).total_seconds() >= duration:
+            return
 
-@timeout_decorator.timeout(int(sys.argv[1])*60) #5mins
+def try_random_click(dumpf):
+    """
+    Attempt to find and click a random clickable element with 30% probability
+    Returns True if click was performed, False otherwise
+    """
+    if random.random() > 0.5:  # 50% chance to attempt a click
+        return False
+        
+    if not os.path.isfile(dumpf):
+        return False
+        
+    try:
+        dump = xx.parse(dumpf)
+        if dump is None:
+            return False
+            
+        clickable_elements = []
+        nodes = dump.getElementsByTagName("node")
+        
+        for elem in nodes:
+            if elem.getAttribute("clickable") == "true" and elem.getAttribute("enabled") == "true":
+                coords = elem.getAttribute("bounds")
+                x, y, xxe, yye = get_coordinates(coords)
+                # Avoid clicking too high on screen (usually navigation elements)
+                if int(y) > 280:
+                    clickable_elements.append((x, y, xxe, yye))
+                    
+        if clickable_elements:
+            # Choose random element and click in middle
+            chosen = random.choice(clickable_elements)
+            execute_click_middle(chosen[0], chosen[1], chosen[2], chosen[3])
+            return True
+            
+    except Exception as e:
+        print(f"Error during random click attempt: {e}")
+        
+    return False
+
+@timeout_decorator.timeout(int(sys.argv[1])*60) # sys.argv[1] mins
 def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
     seed = random.randint(1, 100)
     random.seed(seed)
@@ -959,7 +1025,6 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
         open_new_tab(domain)
         login_needed = domain_info[1]
         search_engine = domain_info[2]
-        streaming = domain_info[3]
         if login_needed == "yes":
             log.write("Log-in in this domain......")
             login(domain)
@@ -988,7 +1053,7 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
         #open_new_tab()
         #domain_idx += 1
 
-def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_list', proxy_app=2, use_pcap_droid=False):
+def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-final-filtered.txt', proxy_app=2, use_pcap_droid=False):
 
     domains = get_domains(curdr+'/'+file_path)
     #print(domains)
@@ -1052,9 +1117,9 @@ def browse(collect_time=1*60, profile=1, mixed_type=True, file_path='res/Alexa_l
             log.write("Attempts at opening GOOGLE CHROME failed!\n")
     setup_chrome()
     try:
-        if mixed_type == 'proxy':
+        if mixed_type == 'PROXY':
             run_proxy(proxy_app, log)
-        elif mixed_type == 'bg':
+        elif mixed_type == 'BG':
             browse_mixed_websites(domains, log, profile, mixed_type)
         else: # Mean mixed traffic
             run_proxy(proxy_app, log)
