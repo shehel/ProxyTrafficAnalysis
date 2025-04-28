@@ -983,6 +983,11 @@ def try_random_click(dumpf):
         
     return False
 
+@timeout_decorator.timeout(int(sys.argv[1])*60)
+def no_browse():
+    while True:
+        pass
+
 @timeout_decorator.timeout(int(sys.argv[1])*60) # sys.argv[1] mins
 def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
     seed = random.randint(1, 100)
@@ -1053,7 +1058,7 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
         #open_new_tab()
         #domain_idx += 1
 
-def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-final-filtered.txt', proxy_app=2, use_pcap_droid=False):
+def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-v2-filtered.txt', proxy_app=2, use_pcap_droid=False):
 
     domains = get_domains(curdr+'/'+file_path)
     #print(domains)
@@ -1119,9 +1124,10 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
     try:
         if mixed_type == 'PROXY':
             run_proxy(proxy_app, log)
+            no_browse()
         elif mixed_type == 'BG':
             browse_mixed_websites(domains, log, profile, mixed_type)
-        else: # Mean mixed traffic
+        else: # mixed traffic
             run_proxy(proxy_app, log)
             time.sleep(10)
             browse_mixed_websites(domains, log, profile, mixed_type)
