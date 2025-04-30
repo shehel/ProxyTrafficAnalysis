@@ -83,13 +83,26 @@ def stop_emu(pid=None):
         if emu_path in proc:
             print("TO KILL:", proc)
             pid = proc.split('  ')[1].strip().split(" ")[0].rstrip()
+            
+            # Pull tcpdump capture if it exists
+            try:
+                os.system("adb pull /sdcard/capture.pcap")
+                if os.path.exists("capture.pcap"):
+                    # Move to PCAP_PATH with correct naming
+                    now = datetime.now()
+                    date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
+                    new_name = f"{PCAP_PATH}/capture_{date_time_str}.pcap"
+                    os.rename("capture.pcap", new_name)
+                    print(f"Capture file moved to {new_name}")
+            except Exception as e:
+                print(f"Error retrieving capture file: {e}")
+            
             print("Killing PID: ",pid)
             os.system("kill -9 "+pid)
             os.system("pkill -f emulator")
             print("Sleeping for clean emulator shutdown.....")
             time.sleep(30)
             break
-
     return
 
 def get_app_uid(package_name):
@@ -136,28 +149,40 @@ def start_emu(pcapname, av='30', wipe_data=True, enable_tcp_dump=False):
         print("Emulator bash script missing!")
 
     print("Starting emulator with android-"+av)
-    os.chdir(EMU_PATH)
-    
-    tcpdump = f"-tcpdump {pcapname}" if enable_tcp_dump else ""
 
     if wipe_data:
-        pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data " + tcpdump ,shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     else:
-        pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio " + tcpdump, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     print("Started emulator with PID: ",pid)
     os.system('ps aux | grep "emulator"')
     print("Sleeping 60 seconds for clean emulator startup....")
-    os.chdir(curdr)
+    # os.chdir(curdr)
     if av == "31":
-        time.sleep(60)
+        time.sleep(20)
     else:
-        time.sleep(60)
+        time.sleep(20)
 
     print("Running adb as root....")
     os.system("adb root")
+    
+    if enable_tcp_dump:
+        print("Setting up tcpdump capture...")
+        os.system("adb remount")
+        os.system("adb push res/tcpdump-x86_64 /data/local/tmp/tcpdump")
+        os.system("adb shell chmod 755 /data/local/tmp/tcpdump")
+        # Start tcpdump in background
+        subprocess.Popen("adb shell /data/local/tmp/tcpdump -i any -s0 -w /sdcard/capture.pcap", 
+                        shell=True, 
+                        stdout=subprocess.PIPE, 
+                        stderr=subprocess.STDOUT)
+        print("tcpdump capture started")
+        
+    time.sleep(15)
+    
     return
 
 def check_status():
@@ -1150,9 +1175,11 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
             finalize_remote_capture(file_name)
             
         # Then stop emulator
-        os.system("pkill -f emulator")
-        log.close()
         stop_emu(None)
+        os.system("pkill -f emulator")
+        log.write(
+            f"Finalizing system\n")
+        log.close()
 
 def run_proxy(proxy_app, log, proxy_file='res/apks_to_run'):
     f = open(curdr+'/'+proxy_file, 'r')
