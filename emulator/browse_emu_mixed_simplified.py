@@ -10,7 +10,13 @@ from timeout_decorator.timeout_decorator import TimeoutError
 from typing import Literal
 import xml.dom.minidom as xx
 import random
+import pandas as pd  # added for parquet handling
 # from exceptions import *
+
+import requests
+from datasets import load_dataset
+import isodate
+import random
 
 global ANDROID_HOME
 global EMU_PATH
@@ -1009,24 +1015,195 @@ def try_random_click(dumpf):
     return False
 
 @timeout_decorator.timeout(int(sys.argv[1])*60)
+# Used for when no background browsing is done
 def no_browse():
     while True:
         pass
 
+def get_random_image_link():
+    # Load image dataset parquet and return a random URL.
+    parquet_path = os.path.join(curdr, "res/img_dataset/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet")
+    try:
+        df = pd.read_parquet(parquet_path)
+        # Assume column name is 'URL'
+        return df['URL'].sample(n=1).iloc[0]
+    except Exception as e:
+        print(f"Error reading parquet file: {e}")
+        return ""
+
+# Function that handles text upload case from upload_browsing function
+def txt_upload(log): 
+    for i in range(2):
+        proc = subprocess.Popen(
+            "R=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c500); adb shell input text \"$R\"",
+            shell=True
+        )
+        proc.wait()
+        log.write("Gotten to write text")
+        
+        proc.wait()
+
+    # Swipe and click on submit
+    proc = subprocess.Popen("adb shell input swipe 1 400 1 100 1000", shell=True)
+    proc.wait()
+    proc = execute_click('48', '294')
+    
+    time.sleep(5)
+
+# Function for upload img, called from upload_browsing function
+def img_upload(log):
+        
+    # Create a random plasma image using ImageMagick
+    try:
+        # Execute sequence of clicks
+        execute_click('271', '106')
+        time.sleep(2)
+        
+        execute_click('227', '440')
+        time.sleep(2)
+        
+        execute_click('65', '337')
+        time.sleep(2)
+        
+        # Inject a random image link from the dataset instead of empty input
+        link = get_random_image_link()
+        subprocess.run(f"adb shell input text '{link}'", shell=True, check=True)
+        time.sleep(4)
+        
+        execute_click('65', '330')
+        time.sleep(2)
+        
+        proc = subprocess.Popen("adb shell input swipe 1 400 1 100 1000", shell=True)
+        proc.wait()
+        
+        execute_click('95', '540')
+        time.sleep(2)
+        
+        execute_click('95', '125')
+        time.sleep(2)
+        
+        execute_click('150', '595')
+        time.sleep(5)
+        
+        subprocess.run("adb shell rm /sdcard/Download/test_plasma.jpg", shell=True)
+        
+        # Wait for upload to complete
+        time.sleep(5)
+        
+    except subprocess.CalledProcessError as e:
+        log.write(f"Error during img upload process: {e}\n")
+    except Exception as e:
+        log.write(f"Unexpected error during img upload: {e}\n")
+
+
+def duration_to_seconds(dur):
+    try:
+        td = isodate.parse_duration(dur)
+        return td.total_seconds()
+    except Exception:
+        return float('inf')
+
+
+def vid_upload(log):
+    # Load the dataset and filter videos with duration < 60 seconds
+    ds = load_dataset("TempoFunk/webvid-10M", split="train[:100]")
+    
+    valid_indices = [i for i, item in enumerate(ds) if duration_to_seconds(item["duration"]) < 60]
+    if not valid_indices:
+        log.write("No video found with duration < 60 seconds.\n")
+        return
+
+    # Try downloading until one works
+    success = False
+    while not success:
+        idx = random.choice(valid_indices)
+        video_info = ds[idx]
+        url = video_info["contentUrl"]
+        log.write(f"Trying video URL: {url}\n")
+        try:
+            response = requests.get(url, stream=True, timeout=10)
+            if response.status_code == 200:
+                with open("temp_video.mp4", "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                success = True
+            else:
+                log.write(f"Failed to fetch video (Status code: {response.status_code})\n")
+        except Exception as e:
+            log.write(f"Exception during video download: {e}\n")
+    
+    # Push the downloaded video to the device
+    try:
+        subprocess.run("adb push temp_video.mp4 /sdcard/Download", shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        log.write(f"Error during adb push: {e}\n")
+        return
+
+    time.sleep(2)
+    execute_click('152', '486')
+    time.sleep(2)
+    execute_click('196', '560')
+    time.sleep(2)
+    execute_click('40', '55')
+    time.sleep(2)
+    execute_click('123', '220')
+    time.sleep(2)
+    for i in range(2):
+        subprocess.run("adb shell input keyevent KEYCODE_ENTER", shell=True, check=True)
+        time.sleep(3)
+    execute_click('152', '486')
+    time.sleep(20)
+    
+    
+    return
+
+def upload_browsing(log, profile=1, mixed_type=True):
+    # Randomly choose one of the three upload websites and open
+    upload_domains = ["paste.ee", "imgbb.com", "files.fm"]
+    upload_idx = random.randint(0, 2)
+    upload_choice = upload_domains[upload_idx]
+    open_new_tab(upload_choice)
+    
+    log.write(f"Accessing upload domain: {upload_choice}") 
+    
+    time.sleep(2)
+    
+    # Code for paste.ee
+    if upload_idx == 0:
+        txt_upload(log)
+    
+    # Code for imgur.com/upload
+    if upload_idx == 1:
+        img_upload(log)
+        
+        
+    if upload_idx == 2:
+        vid_upload(log)
+    
+    return
+
+
 @timeout_decorator.timeout(int(sys.argv[1])*60) # sys.argv[1] mins
-def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
+def browse_mixed_websites(domains, log, profile=1):
     seed = random.randint(1, 100)
     random.seed(seed)
     domains_num = len(domains)
-    #is_first_domain = True
     accessed = []
     domain_idx = 0 #-1
     while True:
+        # Decide whether focus is on upload or download
+        if random.random() < 0.5:
+            upload_browsing(log)
+            continue
+        
+        # Get a random index
         domain_idx = random.randint(0, domains_num-1)
-        #domain_idx += 1
         while domain_idx in accessed:
             domain_idx = random.randint(0, domains_num-1)
         accessed.append(domain_idx)
+        
+        # Get domain using index
         domain_info = domains[domain_idx]
         domain = domain_info[0]
         domain_name = domain.split('.')[:-1]
@@ -1036,22 +1213,8 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
             domain_name = domain_name[0]
         print("Access domain:", domain, domain_idx)
         log.write("Access domain: " + domain +"\n")
-        if domain == "douban.com":
-            idx = random.randint(1, 5)
-            cate = ['/movie', '/tv', '/book', '/group', '/music']
-            domain = "m.douban.com"+cate[idx-1]
-        elif domain == "jjwxc.net":
-            domain = "m.jjwxc.net"
-        elif domain == "autodesk.com.sg":
-            domain = domain+"/products"
-        elif domain == "weibo.cn":
-            domain = "m.weibo.cn"
-        elif domain == "aastocks.com":
-            domain = "aastocks.com/tc/mobile/default.aspx"
-        #if is_first_domain:
-        #	access_domain(domain)
-        #	is_first_domain = False
-        #else:
+
+        # Open new tab with domain
         open_new_tab(domain)
         login_needed = domain_info[1]
         search_engine = domain_info[2]
@@ -1067,21 +1230,17 @@ def browse_mixed_websites(domains, log, profile=1, mixed_type=True):
         try:
             interact(domain, profile, search_bar_needed)
         except TimeoutError as e:
-            #print("Time limit is reached. Interaction with", domain_name, "ends......")
             raise e
         except Exception as e:
             log.write(domain_name+" => Error happend: "+str(e)+"\n")
             print(e)
             print("Interaction with", domain_name, "ends because of ERROR happened......")
             log.write("Interaction with "+domain_name+" ends because of ERROR happened......\n")
-            #print("Sleep for exploring ERROR......")
-            #time.sleep(10)
+
         curr_time = datetime.now()
         time_diff = int((curr_time-start_time).total_seconds())
         print("The time spent for "+domain_name+' is '+str(time_diff)+" seconds.")
         log.write("The time spent for "+domain_name+': '+str(time_diff)+" seconds.\n")
-        #open_new_tab()
-        #domain_idx += 1
 
 def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-v2-filtered.txt', proxy_app=2, use_pcap_droid=False):
 
@@ -1151,11 +1310,11 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
             run_proxy(proxy_app, log)
             no_browse()
         elif mixed_type == 'BG':
-            browse_mixed_websites(domains, log, profile, mixed_type)
+            browse_mixed_websites(domains, log, profile)
         else: # mixed traffic
             run_proxy(proxy_app, log)
             time.sleep(10)
-            browse_mixed_websites(domains, log, profile, mixed_type)
+            browse_mixed_websites(domains, log, profile)
 
     except TimeoutError as e:
         print(e)
