@@ -20,3 +20,5 @@ AGmodels/
 
 # Ignore emulation artifacts
 window_dump.xml
+
+res/img_dataset/**
