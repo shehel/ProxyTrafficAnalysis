@@ -1242,7 +1242,7 @@ def browse_mixed_websites(domains, log, profile=1):
         print("The time spent for "+domain_name+' is '+str(time_diff)+" seconds.")
         log.write("The time spent for "+domain_name+': '+str(time_diff)+" seconds.\n")
 
-def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-v2-filtered.txt', proxy_app=2, use_pcap_droid=False):
+def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-v3-filtered.txt', proxy_app=2, use_pcap_droid=False):
 
     domains = get_domains(curdr+'/'+file_path)
     #print(domains)
