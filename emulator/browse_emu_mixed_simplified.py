@@ -23,6 +23,12 @@ global EMU_PATH
 global PCAP_PATH
 global curdr
 
+# Used for the video dataset
+global video_dataset
+global valid_video_indices
+video_dataset = None
+valid_video_indices = None
+
 # Updated paths based on the new setup
 # Set environment variables or use defaults
 ANDROID_HOME = os.getenv('ANDROID_HOME')
@@ -1084,11 +1090,7 @@ def img_upload(log):
         
         execute_click('150', '595')
         time.sleep(5)
-        
-        subprocess.run("adb shell rm /sdcard/Download/test_plasma.jpg", shell=True)
-        
-        # Wait for upload to complete
-        time.sleep(5)
+
         
     except subprocess.CalledProcessError as e:
         log.write(f"Error during img upload process: {e}\n")
@@ -1104,20 +1106,43 @@ def duration_to_seconds(dur):
         return float('inf')
 
 
-def vid_upload(log):
-    # Load the dataset and filter videos with duration < 60 seconds
-    ds = load_dataset("TempoFunk/webvid-10M", split="train[:100]")
+
+def initialize_video_dataset():
+    global video_dataset
+    global valid_video_indices
     
-    valid_indices = [i for i, item in enumerate(ds) if duration_to_seconds(item["duration"]) < 60]
-    if not valid_indices:
+    try:
+        # Load the dataset once
+        video_dataset = load_dataset("TempoFunk/webvid-10M", split="train[:100]")
+        # Pre-filter valid videos
+        valid_video_indices = [i for i, item in enumerate(video_dataset) if duration_to_seconds(item["duration"]) < 60]
+        print(f"Video dataset initialized with {len(valid_video_indices)} valid videos")
+    except Exception as e:
+        print(f"Error initializing video dataset: {e}")
+        video_dataset = None
+        valid_video_indices = None
+
+def vid_upload(log):
+    global video_dataset
+    global valid_video_indices
+    
+    # Check if dataset is loaded
+    if video_dataset is None or valid_video_indices is None:
+        log.write("Video dataset not initialized. Attempting to initialize...\n")
+        initialize_video_dataset()
+        if video_dataset is None or valid_video_indices is None:
+            log.write("Failed to initialize video dataset\n")
+            return
+    
+    if not valid_video_indices:
         log.write("No video found with duration < 60 seconds.\n")
         return
 
     # Try downloading until one works
     success = False
     while not success:
-        idx = random.choice(valid_indices)
-        video_info = ds[idx]
+        idx = random.choice(valid_video_indices)
+        video_info = video_dataset[idx]
         url = video_info["contentUrl"]
         log.write(f"Trying video URL: {url}\n")
         try:
@@ -1140,6 +1165,9 @@ def vid_upload(log):
         log.write(f"Error during adb push: {e}\n")
         return
 
+    # Delete the video locally
+    subprocess.run("rm temp_video.mp4", shell=True, check=True)
+
     time.sleep(2)
     execute_click('152', '486')
     time.sleep(2)
@@ -1154,7 +1182,6 @@ def vid_upload(log):
         time.sleep(3)
     execute_click('152', '486')
     time.sleep(20)
-    
     
     return
 
