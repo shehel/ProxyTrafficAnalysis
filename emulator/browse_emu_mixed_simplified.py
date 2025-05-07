@@ -163,9 +163,9 @@ def start_emu(pcapname, av='30', wipe_data=True, enable_tcp_dump=False):
     print("Starting emulator with android-"+av)
 
     if wipe_data:
-        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data -no-window",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     else:
-        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -no-window", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
 
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -174,9 +174,9 @@ def start_emu(pcapname, av='30', wipe_data=True, enable_tcp_dump=False):
     print("Sleeping 60 seconds for clean emulator startup....")
     # os.chdir(curdr)
     if av == "31":
-        time.sleep(20)
+        time.sleep(60)
     else:
-        time.sleep(20)
+        time.sleep(60)
 
     print("Running adb as root....")
     os.system("adb root")
@@ -1028,7 +1028,8 @@ def no_browse():
 
 def get_random_image_link():
     # Load image dataset parquet and return a random URL.
-    parquet_path = os.path.join(curdr, "res/img_dataset/part-00000-5b54c5d5-bbcf-484d-a2ce-0d6f73df1a36-c000.snappy.parquet")
+    print("Starting to load dataset")
+    parquet_path = os.path.join(curdr, "res/img_dataset/sampled_5000_rows.parquet")
     try:
         df = pd.read_parquet(parquet_path)
         # Assume column name is 'URL'
@@ -1323,7 +1324,7 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
     status, result = open_chrome()
     print("GOOGLE CHROME opening result => ", result)
     log.write("mixed domains\nOpening Chrome => result: "+str(result)+" => Emulator status: "+str(status)+"\n")
-    time.sleep(4)
+    time.sleep(7)
     if not result:
         if status:
             print("Attempts at opening GOOGLE CHROME failed!")
