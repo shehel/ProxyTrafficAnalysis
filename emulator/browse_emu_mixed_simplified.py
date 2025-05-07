@@ -83,7 +83,7 @@ def get_domains(basep):
             domains += [domain_info] #['https://'+domain+'/']
     return domains[1:]
 
-def stop_emu(pid=None):
+def stop_emu(pid=None, mixed_type="BG"):  # Add mixed_type parameter
     emu_path = EMU_PATH
     x = os.popen('ps aux | grep "emulator"').read()
     print("Running processes: ", x)
@@ -103,7 +103,11 @@ def stop_emu(pid=None):
                     # Move to PCAP_PATH with correct naming
                     now = datetime.now()
                     date_time_str = now.strftime("%d_%m_%Y_%H_%M_%S")
-                    new_name = f"{PCAP_PATH}/capture_{date_time_str}.pcap"
+                    
+                    # Use mixed_type parameter to determine pcap type
+                    pcap_type = mixed_type.lower()
+                        
+                    new_name = f"{PCAP_PATH}/{pcap_type}_{date_time_str}.pcap"
                     os.rename("capture.pcap", new_name)
                     print(f"Capture file moved to {new_name}")
             except Exception as e:
@@ -1287,7 +1291,7 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
     elif profile == 3:
         activity = "high"
         
-    stop_emu(pid)
+    stop_emu(pid, mixed_type)
 
     # PCAP droid requires rooting the device first
     if use_pcap_droid: 
@@ -1361,7 +1365,7 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
             finalize_remote_capture(file_name)
             
         # Then stop emulator
-        stop_emu(None)
+        stop_emu(None, mixed_type)
         os.system("pkill -f emulator")
         log.write(
             f"Finalizing system\n")
