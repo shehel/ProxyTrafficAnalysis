@@ -685,7 +685,6 @@ def login(domain, username="qcri2024@gmail.com", password="Qcriproxytest@42"):
         os.system('adb shell input swipe 100 1000 100 80')
         time.sleep(2)
     dumpf = get_uidump()
-    dumpf = get_uidump()
     if not os.path.isfile(dumpf):
         print("Failed to obtaine UI dump for APK. Exiting UI interaction")
         return False
