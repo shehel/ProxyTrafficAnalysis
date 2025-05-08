@@ -159,46 +159,33 @@ def get_app_uid(package_name):
         print(f"Error while retrieving UID for {package_name}: {e}")
         return None
 
-def start_emu(pcapname, av='30', wipe_data=True, enable_tcp_dump=False):
-
+def start_emu(pcapname, av='30', wipe_data=True, enable_tcp_dump=False, enable_window=False):
+    # Decide window flag: add "-no-window" if enable_window is False
+    window_flag = "" if enable_window else " -no-window"
     if not os.path.isfile(EMU_PATH+"/emulator"):
         print("Emulator bash script missing!")
-
     print("Starting emulator with android-"+av)
-
     if wipe_data:
-        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -wipe-data -no-window",shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        cmd = "emulator -avd pixel_30 -no-audio -wipe-data" + window_flag
+        pid = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     else:
-        pid = subprocess.Popen("emulator -avd pixel_30 -no-audio -no-window", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-
-    #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -wipe-data -tcpdump " + pcapname, shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-    #pid = subprocess.Popen("./emulator -avd pixel_30 -no-audio -no-window -wipe-data ", shell=True,preexec_fn=os.setsid,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        cmd = "emulator -avd pixel_30 -no-audio" + window_flag
+        pid = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     print("Started emulator with PID: ",pid)
     os.system('ps aux | grep "emulator"')
     print("Sleeping 60 seconds for clean emulator startup....")
-    # os.chdir(curdr)
-    if av == "31":
-        time.sleep(60)
-    else:
-        time.sleep(60)
-
+    time.sleep(60)
     print("Running adb as root....")
     os.system("adb root")
-    
     if enable_tcp_dump:
         print("Setting up tcpdump capture...")
         os.system("adb remount")
         os.system("adb push res/tcpdump-x86_64 /data/local/tmp/tcpdump")
         os.system("adb shell chmod 755 /data/local/tmp/tcpdump")
-        # Start tcpdump in background
         subprocess.Popen("adb shell /data/local/tmp/tcpdump -i any -s0 -w /sdcard/capture.pcap", 
-                        shell=True, 
-                        stdout=subprocess.PIPE, 
-                        stderr=subprocess.STDOUT)
+                         shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         print("tcpdump capture started")
-        
     time.sleep(15)
-    
     return
 
 def check_status():
@@ -1273,7 +1260,7 @@ def browse_mixed_websites(domains, log, profile=1):
         print("The time spent for "+domain_name+' is '+str(time_diff)+" seconds.")
         log.write("The time spent for "+domain_name+': '+str(time_diff)+" seconds.\n")
 
-def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-v3-filtered.txt', proxy_app=2, use_pcap_droid=False):
+def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-v3-filtered.txt', proxy_app=2, use_pcap_droid=False, enable_window=False):
 
     domains = get_domains(curdr+'/'+file_path)
     #print(domains)
@@ -1296,7 +1283,7 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
     # PCAP droid requires rooting the device first
     if use_pcap_droid: 
         # Start emu first time
-        start_emu(PCAP_PATH, av='30')
+        start_emu(PCAP_PATH, av='30', enable_window=enable_window)
 
         # Add setup for Magisk
         start_magisk()
@@ -1317,7 +1304,7 @@ def browse(collect_time=1*60, profile=1, mixed_type='BG', file_path='res/tranco-
     
     # Should not wipe data if pcap droid being used, as we just installed root in prev run
     # tcp dump should be disable if pcap droid being used, and enabled otherwise
-    pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=not use_pcap_droid, enable_tcp_dump=not use_pcap_droid)
+    pid = start_emu(PCAP_PATH+file_name, av='30', wipe_data=not use_pcap_droid, enable_tcp_dump=not use_pcap_droid, enable_window=enable_window)
     
     # Setup remote capture app only if pcap droid enabled
     if use_pcap_droid:
@@ -1528,27 +1515,24 @@ def finalize_remote_capture(file_name):
     print("Remote capture finalized and files moved.")
 
 if __name__ == "__main__":
-    print("USAGE: python3 browse_emu.py <time in mts: eg. 1/5/10/20> <user profile: eg. LOW/MEDIUM/HIGH> <mixed traffic: eg. PROXY/BG/MIXED> <proxy app(enter # of app): eg.2(Bright Data)> <use PCAPDroid: YES/NO")
+    print("USAGE: python3 browse_emu.py <time in mts> <user profile: LOW/MEDIUM/HIGH> <mixed traffic: PROXY/BG/MIXED> <proxy app: e.g., 2> <use PCAPDroid: YES/NO> <enable emulator window: YES/NO>")
     traffic_collection_time = int(sys.argv[1])*60
     profile = str(sys.argv[2]).upper()
     mixed: EStatus = sys.argv[3].upper()
     proxy_app = int(sys.argv[4])
     use_pcap_droid = str(sys.argv[5])
-    print("Each website will be visited and collected traffic for(seconds): ", traffic_collection_time)
-    print("The user profile is: ", profile, "ACTIVITY user")
-    print("The traffic is mixed or not:", mixed)
-    print("The proxy app running in the background:", proxy_app)
-    print("NOTE!!!: Run as root! Emulator is in /opt/androidsdk/ which may need root access.")
+    enable_window = True if len(sys.argv) > 6 and sys.argv[6].upper() == "YES" else False
+    print("Each website will be visited and collected traffic for (secs): ", traffic_collection_time)
+    print("The user profile is: ", profile)
+    print("Mixed traffic type:", mixed)
+    print("Proxy app running in the background:", proxy_app)
+    print("Using PCAPDroid:", use_pcap_droid)
+    print("Emulator window enabled:", enable_window)
     if profile =="LOW":
         act_level = 1
     elif profile == "MEDIUM":
         act_level = 2
     else:
         act_level = 3
-        
-    if use_pcap_droid == "YES":
-        pcap_droid_type = True
-    else:
-        pcap_droid_type = False
-
-    browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed, proxy_app=proxy_app, use_pcap_droid=pcap_droid_type)
+    pcap_droid_type = True if use_pcap_droid.upper() == "YES" else False
+    browse(collect_time=traffic_collection_time, profile=act_level, mixed_type=mixed, proxy_app=proxy_app, use_pcap_droid=pcap_droid_type, enable_window=enable_window)
