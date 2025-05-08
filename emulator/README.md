@@ -55,11 +55,11 @@ python emulator/browse_emu_mixed_simplified.py 120 LOW NO 2 NO NO
 | Pos | Name      | Values / Example | Description                              |
 |-----|-----------|------------------|------------------------------------------|
 | 1   | `duration`| `120`            | Minutes per session                      |
-| 2   | `intensity`| `LOW | MEDIUM | HIGH` | Browsing aggressiveness                |
-| 3   | `relay`   | `YES | NO`       | Include relayed traffic or not           |
+| 2   | `intensity`| `LOW / MEDIUM / HIGH` | Browsing aggressiveness                |
+| 3   | `relay`   | `YES / NO`       | Include relayed traffic or not           |
 | 4   | `proxy`   | `2`              | Proxy provider (currently Bright Data)   |
-| 5   | `pcapdroid`| `YES | NO`      | Use PCAPDroid for capture                |
-| 6   | `window`  | `YES | NO`       | Show emulator GUI window                 |
+| 5   | `pcapdroid`| `YES / NO`      | Use PCAPDroid for capture                |
+| 6   | `window`  | `YES / NO`       | Show emulator GUI window                 |
 
 Intensity presets:
 
