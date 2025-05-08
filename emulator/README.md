@@ -46,8 +46,8 @@ source .env
 ## 3 . Quick start
 
 ```bash
-# run a 2‑hour low‑intensity session, direct traffic via Bright Data proxy
-python emulator/browse_emu_mixed_simplified.py 120 LOW NO 2
+# run a 2‑hour low‑intensity session, direct traffic via Bright Data proxy, with GUI hidden
+python emulator/browse_emu_mixed_simplified.py 120 LOW NO 2 NO NO
 ```
 
 **CLI arguments**
@@ -58,6 +58,8 @@ python emulator/browse_emu_mixed_simplified.py 120 LOW NO 2
 | 2   | `intensity`| `LOW | MEDIUM | HIGH` | Browsing aggressiveness                |
 | 3   | `relay`   | `YES | NO`       | Include relayed traffic or not           |
 | 4   | `proxy`   | `2`              | Proxy provider (currently Bright Data)   |
+| 5   | `pcapdroid`| `YES | NO`      | Use PCAPDroid for capture                |
+| 6   | `window`  | `YES | NO`       | Show emulator GUI window                 |
 
 Intensity presets:
 
